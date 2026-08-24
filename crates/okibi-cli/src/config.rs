@@ -16,7 +16,12 @@ pub const CONFIG_VERSION: &str = "okibi-digest-config/1";
 pub struct Config {
     pub config: String,
     /// The Cloudflare account the dataset belongs to.
-    pub account_id: String,
+    ///
+    /// Optional here because this file is committed and an account id is an
+    /// identifier nobody needs published. The environment supplies it in CI;
+    /// see [`crate::wae::account_from_env`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<String>,
     /// The dataset name, whose trailing number is the schema version.
     #[serde(default = "default_dataset")]
     pub dataset: String,
@@ -72,6 +77,7 @@ mod tests {
                 .unwrap();
 
         assert_eq!(config.dataset, "tile_demand_1");
+        assert_eq!(config.account_id.as_deref(), Some("abc"));
         assert_eq!(config.top_n, 20);
         assert!(config.services.is_empty());
     }

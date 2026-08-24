@@ -260,7 +260,8 @@ async fn run_digest(
         return Ok(());
     }
 
-    let client = wae::Client::new(&config.account_id, wae::token_from_env()?)?;
+    let account = wae::account_from_env(config.account_id.as_deref())?;
+    let client = wae::Client::new(&account, wae::token_from_env()?)?;
     let (cells, tiles) = tokio::try_join!(
         client.query::<digest::CellRow>(&cells_sql),
         client.query::<digest::TileRow>(&tiles_sql),

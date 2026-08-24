@@ -29,6 +29,10 @@ jobs:
       - name: Take the digest
         env:
           OKIBI_CF_API_TOKEN: ${{ secrets.OKIBI_CF_API_TOKEN }}
+          # The account id stays out of the committed config: this
+          # repository is public, and it is an identifier nobody needs
+          # published.
+          OKIBI_ACCOUNT_ID: ${{ vars.OKIBI_ACCOUNT_ID }}
         run: |
           cargo run --release -p okibi-cli -- digest \
             --config services.json \
