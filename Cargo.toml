@@ -18,9 +18,20 @@ version = "0.0.0"
 okibi-core = { path = "crates/okibi-core", version = "0.0.0" }
 okibi-qk = { path = "crates/okibi-qk", version = "0.0.0" }
 
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive", "env"] }
+# Windows are ISO 8601 intervals and the default one is "yesterday", which is a
+# calendar question rather than an arithmetic one.
+jiff = "0.2"
+# rustls rather than the platform's TLS: this runs in CI containers as much as
+# on anyone's machine, and a missing system library is a bad way to find out.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 wasm-bindgen = "0.2"
 
-# Test-only, all three.
+# Test-only.
 #
 # The schemas under spec/ are the original for what okibi's documents are, so
 # the examples beside them are checked against them rather than proof-read.
@@ -31,4 +42,3 @@ jsonschema = { version = "0.51", default-features = false }
 # Projection has rules that hold over every tile rather than over the handful
 # anyone would think to write down, so they are stated as properties.
 proptest = "1.5"
-serde_json = "1.0"

@@ -1,0 +1,49 @@
+name: Digest
+
+# Analytics Engine keeps three months, which is shorter than the history a
+# demand model wants, so a digest is taken daily and kept somewhere that does
+# not expire. That obligation comes with the binding — see
+# spec/bindings/wae-1.md — and this is where it is discharged.
+on:
+  schedule:
+    - cron: "0 18 * * *" # 03:00 JST
+  workflow_dispatch:
+    inputs:
+      date:
+        description: The day to aggregate (YYYY-MM-DD). Defaults to yesterday.
+        required: false
+
+concurrency:
+  group: okibi-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    name: Aggregate yesterday
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Take the digest
+        env:
+          OKIBI_CF_API_TOKEN: ${{ secrets.OKIBI_CF_API_TOKEN }}
+        run: |
+          cargo run --release -p okibi-cli -- digest \
+            --config services.json \
+            ${{ inputs.date && format('--date {0}', inputs.date) || '' }} \
+            --out digests/
+
+      # The digests are the thing that outlives the retention window, so they
+      # go to a bucket rather than to an artifact that expires in ninety days
+      # for its own reasons.
+      - name: Keep it
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.OKIBI_R2_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.OKIBI_ACCOUNT_ID }}
+        run: |
+          for file in digests/*.jsonl; do
+            npx --yes wrangler@4 r2 object put \
+              "okibi/digests/$(basename "$file")" --file "$file" --remote
+          done

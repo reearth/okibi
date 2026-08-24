@@ -67,6 +67,50 @@ fn examples_match_their_schemas() {
     }
 }
 
+/// Weighted counts are fractional in general, so a whole one comes back as
+/// `48210.0` where the file wrote `48210`. That is the same number and the
+/// schema asks only for a number, so the comparison is made over values rather
+/// than over how they were spelled.
+fn as_numbers(value: &serde_json::Value) -> serde_json::Value {
+    use serde_json::Value;
+    match value {
+        Value::Number(n) => serde_json::json!(n.as_f64().expect("finite")),
+        Value::Array(items) => Value::Array(items.iter().map(as_numbers).collect()),
+        Value::Object(fields) => Value::Object(
+            fields
+                .iter()
+                .map(|(k, v)| (k.clone(), as_numbers(v)))
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
+/// The crate's own type has to be the document the specification describes,
+/// not merely something with the same field names: reading an example and
+/// writing it back must produce the same JSON, and that JSON must still
+/// satisfy the schema.
+#[test]
+fn the_digest_type_round_trips_through_the_spec_examples() {
+    let schema_path = spec_dir().join("schema").join("demand-digest.schema.json");
+    let validator = jsonschema::validator_for(&read_json(&schema_path)).expect("schema");
+
+    for example in ["demand-digest.json", "demand-digest.tileset.json"] {
+        let original = read_json(&spec_dir().join("examples").join(example));
+
+        let record: okibi_core::DigestRecord =
+            serde_json::from_value(original.clone()).unwrap_or_else(|e| panic!("{example}: {e}"));
+        let written = serde_json::to_value(&record).expect("serialise");
+
+        assert_eq!(
+            as_numbers(&written),
+            as_numbers(&original),
+            "{example} did not survive the round trip"
+        );
+        assert!(validator.is_valid(&written), "{example} left the schema");
+    }
+}
+
 /// `tile.qk8` is `tile.qk` cut to eight characters, and a digest cell's `qk8`
 /// is the cell its `top_qk` tiles fall in. A schema cannot say that one field
 /// is a prefix of another, and an example where they disagree would be an

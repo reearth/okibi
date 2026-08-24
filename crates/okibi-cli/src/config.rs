@@ -1,0 +1,93 @@
+//! Which services to aggregate, and where from.
+
+use std::path::Path;
+
+use anyhow::{Context, Result, bail};
+use serde::{Deserialize, Serialize};
+
+pub const CONFIG_VERSION: &str = "okibi-digest-config/1";
+
+/// The whole of what `okibi digest` needs to know beyond credentials.
+///
+/// One process aggregates every service, because under the WAE binding there
+/// is one dataset and the index is the service: a per-service implementation
+/// would be the same query run several times.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Config {
+    pub config: String,
+    /// The Cloudflare account the dataset belongs to.
+    pub account_id: String,
+    /// The dataset name, whose trailing number is the schema version.
+    #[serde(default = "default_dataset")]
+    pub dataset: String,
+    /// The services to read. Empty means every service in the dataset.
+    #[serde(default)]
+    pub services: Vec<String>,
+    /// How many top tiles to record per cell.
+    #[serde(default = "default_top_n")]
+    pub top_n: usize,
+    /// The most tile-level rows to ask for when finding those top tiles.
+    #[serde(default = "default_top_rows")]
+    pub top_rows: usize,
+}
+
+fn default_dataset() -> String {
+    "tile_demand_1".to_string()
+}
+
+fn default_top_n() -> usize {
+    20
+}
+
+fn default_top_rows() -> usize {
+    10_000
+}
+
+impl Config {
+    pub fn load(path: &Path) -> Result<Self> {
+        let text =
+            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let config: Config =
+            serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+
+        if config.config != CONFIG_VERSION {
+            bail!(
+                "{} says {:?}, and this reads {CONFIG_VERSION}",
+                path.display(),
+                config.config
+            );
+        }
+        Ok(config)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fills_in_what_was_left_out() {
+        let config: Config =
+            serde_json::from_str(r#"{"config": "okibi-digest-config/1", "account_id": "abc"}"#)
+                .unwrap();
+
+        assert_eq!(config.dataset, "tile_demand_1");
+        assert_eq!(config.top_n, 20);
+        assert!(config.services.is_empty());
+    }
+
+    #[test]
+    fn refuses_a_version_it_does_not_read() {
+        let dir = std::env::temp_dir().join("okibi-config-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("services.json");
+        std::fs::write(
+            &path,
+            r#"{"config": "okibi-digest-config/2", "account_id": "abc"}"#,
+        )
+        .unwrap();
+
+        let error = Config::load(&path).unwrap_err().to_string();
+        assert!(error.contains("okibi-digest-config/1"), "{error}");
+    }
+}

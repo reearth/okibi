@@ -7,4 +7,9 @@
 //! gets stored, diffed and reviewed, and a plan that cannot be re-derived is
 //! not reviewable.
 //!
-//! Nothing here yet — see `spec/planner.md` for the algorithm this owes.
+//! The planning itself is not here yet — see `spec/planner.md` for the
+//! algorithm it owes. What is here is the digest it will read.
+
+pub mod digest;
+
+pub use digest::{DigestRecord, Kind, TopEntry};
