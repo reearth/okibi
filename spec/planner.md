@@ -24,6 +24,11 @@ cost(cell) = p50_gen_ms from the digest,
              falling back to the manifest's default_gen_ms
 ```
 
+A measured zero counts as no measurement. Some runtimes cannot time pure CPU
+— Workers freeze their clocks between I/O — and believing a zero would give
+the cell a cost of zero, a priority of zero, and a plan that warms nothing,
+without anything about it being an error.
+
 Only the intersection is considered. Demand outside the invalidation's scope
 is still warm and needs nothing; invalidated space with no observed demand has
 nobody waiting on it.

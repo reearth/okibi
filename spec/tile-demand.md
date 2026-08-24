@@ -27,7 +27,7 @@ Examples: [`examples/`](examples/).
 | `tile.colo` | string | — | Edge location code, e.g. `NRT`, where one is available |
 | `tile.origin` | string | ✔ | `organic` or `warm`. A request okibi itself made is `warm` |
 | `tile.count` | number | ✔ | Always `1`. It exists so the reader can restore sampling weight |
-| `tile.gen_ms` | number | ✔ | Milliseconds spent generating. `0` on a hit |
+| `tile.gen_ms` | number | ✔ | Milliseconds spent generating, as far as the runtime can see. `0` on a hit |
 | `tile.gen_dep_ms` | number | — | The part of `gen_ms` spent calling another service, e.g. a building-mesh service asking a terrain service for ground height |
 | `tile.bytes` | number | ✔ | Response body size in bytes |
 | `tile.z` | number | when `content` | The native zoom level. **Only comparable within one service** |
@@ -40,6 +40,18 @@ coordinates mean different ground in each, so they cannot be aggregated
 together. A centre point projected into one quadkey space can. Projecting is the service's job,
 though it need not write the projection itself — [`okibi-qk`](../crates/okibi-qk)
 exists to be used here.
+
+`tile.gen_ms` is a lower bound, not a stopwatch. A runtime may freeze its
+clocks between I/O — Workers do, to blunt Spectre — so a generator that is
+pure CPU measures as zero however long it ran, and one that mixes CPU with
+fetches measures only the fetches. Time the whole of generating, including
+the calls it makes, and read the clock after an I/O rather than before one.
+
+A service whose cost this cannot reach should say so in its manifest instead:
+`cost.billing.per_gen.cpu_ms` is a number a service knows about itself, and
+where it is given, an estimate stops depending on a measurement the runtime
+will not take. A planner reading a zero treats it as no measurement at all,
+because a tile that took no time to make does not exist.
 
 `tile.z` is *not* comparable across services, and no aggregate should treat it
 as though it were. A service may use zoom as a size bucket, in which case its
@@ -56,18 +68,27 @@ where the demand is, and demand is mostly hits.
 **Write on the hot path.** Emit as the response goes out. Where the backend
 offers a non-blocking write, do not wait for it.
 
-**An epoch is a part of the cache key, spelled the way the key spells it.**
-Not a description of one: if the key says `9005`, the epoch is `9005`.
+**An epoch must agree with what an invalidation says.** That is the whole of
+the requirement, and the only thing an epoch is read for: asking, after a
+change, how much demand there was under the thing that just died. The answer
+is a join between the ledger and the epochs the service reports, and a join
+only works when both sides spell it the same way.
 
-The three names are a way to say what a part is *for* — where the data came
-from, how it was built, what it was built with — and okibi decides nothing by
-them; they appear in what a person reads about a change. A service whose key
-has two parts names two and leaves the third empty. Splitting one part into
-three to fill the names would mean inventing strings that are in no cache key,
-which is the one thing this attribute may not be.
+The cache key is how that is usually achieved rather than what is asked for.
+Build the key and the event from one construction and the two cannot disagree;
+build them separately and they agree until the day they do not.
 
-**Keep them byte-identical.** `tile.epoch.*` must equal the strings the
-cache key is built from, exactly. If they drift, okibi can no longer match "an
+**Split what moves separately.** The three names say what a part is *for* —
+where the data came from, how it was built, what it was built with — and okibi
+decides nothing by them. What they are worth is later, in a query nobody has
+written yet: two versions folded into one string can never be asked about
+apart, and a service that bumps a renderer without touching a style has lost
+the ability to ask what that cost. Give a thing its own axis when it can move
+on its own.
+
+A service with fewer than three such things names fewer and leaves the rest
+empty. What it must not do is derive an axis a second way to fill a name — an
+epoch computed twice is two strings that agree until they do not. If they drift, okibi can no longer match "an
 invalidation happened" against "these tiles are the ones that died", and it
 will confidently warm the wrong set. Do not maintain this by discipline:
 read both the cache key and the event from one file, `okibi.epochs.json`, so

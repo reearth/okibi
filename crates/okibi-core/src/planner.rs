@@ -122,6 +122,21 @@ enum Rank {
 // that service. The constraint is carried in the manifest and will need a
 // rank the day a plan can span two services.
 
+/// A measurement, or the manifest's guess where there is none.
+///
+/// Zero counts as none. A tile that took no time to make does not exist, and a
+/// runtime can report one anyway: Workers freeze their clocks between I/O for
+/// Spectre reasons, so a generator that is pure CPU measures as zero however
+/// long it ran. Believing that would give the cell a cost of zero, a priority
+/// of zero, and a plan that warms nothing — silently, since nothing about it
+/// is an error.
+fn measured_or(value: Option<f64>, fallback: f64) -> f64 {
+    match value {
+        Some(value) if value > 0.0 => value,
+        _ => fallback,
+    }
+}
+
 /// What a cell contributed, once its windows were combined.
 #[derive(Debug, Default, Clone)]
 struct Cell {
@@ -221,9 +236,9 @@ pub fn plan(input: &PlanInput<'_>) -> Result<WarmPlan, PlanError> {
             .values()
             .map(|cell| estimate::CellCost {
                 tiles_observed: cell.tiles_observed,
-                gen_ms: cell.gen_ms.unwrap_or(manifest.cost.default_gen_ms),
+                gen_ms: measured_or(cell.gen_ms, manifest.cost.default_gen_ms),
                 p95_gen_ms: cell.p95_gen_ms,
-                bytes: cell.bytes.unwrap_or(manifest.cost.default_bytes),
+                bytes: measured_or(cell.bytes, manifest.cost.default_bytes),
             })
             .collect::<Vec<_>>(),
         manifest,
@@ -318,8 +333,8 @@ fn expand(
     let mut candidates = Vec::new();
 
     for ((kind, _qk8), cell) in cells {
-        let gen_ms = cell.gen_ms.unwrap_or(manifest.cost.default_gen_ms);
-        let bytes = cell.bytes.unwrap_or(manifest.cost.default_bytes);
+        let gen_ms = measured_or(cell.gen_ms, manifest.cost.default_gen_ms);
+        let bytes = measured_or(cell.bytes, manifest.cost.default_bytes);
 
         for ((qk, id), req) in &cell.tiles {
             let (rank, url) = if kind.is_placed() {

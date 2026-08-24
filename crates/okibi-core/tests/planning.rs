@@ -465,3 +465,44 @@ fn metadata_is_left_out_when_the_scope_names_other_things() {
 
     assert!(case.plan().entries.is_empty());
 }
+
+/// Workers freeze their clocks between I/O to blunt Spectre, so a generator
+/// that is pure CPU measures as zero however long it ran. A cost of zero is a
+/// priority of zero is a plan that warms nothing, and none of that is an
+/// error — which is what makes it worth refusing to believe.
+#[test]
+fn a_generation_time_of_zero_is_not_a_measurement() {
+    let mut unmeasurable = cell(
+        "13300211",
+        "2026-08-23/P1D",
+        1820.0,
+        &[("13300211231022", "14/14552/6451", 1820.0)],
+    );
+    unmeasurable.p50_gen_ms = Some(0.0);
+    unmeasurable.avg_bytes = Some(0.0);
+
+    let plan = Case::new(vec![unmeasurable]).plan();
+
+    assert_eq!(plan.entries.len(), 1, "the tile is still worth warming");
+    // The manifest's fallbacks, which is what a service says when the
+    // measurement cannot be taken.
+    assert_eq!(plan.entries[0].expected_gen_ms, 30_000.0);
+    assert!(plan.entries[0].priority > 0.0);
+    assert!(plan.estimate.warm.usd > 0.0, "and it is not free");
+}
+
+/// A real measurement still wins, so a fast service is not charged the
+/// fallback for being fast.
+#[test]
+fn a_real_measurement_is_still_used() {
+    let mut quick = cell(
+        "13300211",
+        "2026-08-23/P1D",
+        1820.0,
+        &[("13300211231022", "14/14552/6451", 1820.0)],
+    );
+    quick.p50_gen_ms = Some(12.0);
+
+    let plan = Case::new(vec![quick]).plan();
+    assert_eq!(plan.entries[0].expected_gen_ms, 12.0);
+}
