@@ -52,9 +52,34 @@ free — cache economics become something a reviewer can see.
 
 ## Status
 
-The [specifications](spec/README.md) are drafted and their schemas are checked
-in CI. Nothing is implemented behind them yet: no crate does anything, and
-nothing is published anywhere.
+All four pieces exist and run: the [specifications](spec/README.md), the
+writer a service calls, the planner, and the actions that put a plan on a pull
+request and then fetch it.
+
+What has not happened is any of it meeting real data. No service writes
+tile-demand events yet, so no digest has ever been taken from a live dataset —
+which also means the Analytics Engine SQL in `okibi digest` has never run
+against Analytics Engine. `okibi digest --print-sql` exists to be read before
+it is trusted.
+
+Nothing is published to crates.io or npm.
+
+## Using it
+
+A service needs two files and one call.
+
+`okibi.epochs.json` holds the epoch strings, and the service builds its cache
+keys from the same file — which is what keeps a demand event's epochs
+byte-identical to the key it was cached under.
+
+`okibi.manifest.json` is everything okibi is allowed to know: the URL template
+that regenerates a tile, what the origin will tolerate, and what a generation
+costs.
+
+Then [`@reearth/okibi-writer`](packages/okibi-writer) writes one event per tile
+request. Everything after that happens outside the service —
+[`examples/service-workflow.yml`](examples/service-workflow.yml) is the whole
+of it.
 
 ## License
 

@@ -1,0 +1,103 @@
+name: okibi warm
+description: Fetch a warm plan, in the runner or by handing it to the executor.
+
+# Warming is a GET to the service's own on-demand path, so this needs to know
+# nothing about tiles. What it decides is only where the fetching happens: a
+# job stops at six hours, and a plan longer than that has to go somewhere
+# without that limit.
+
+inputs:
+  plan:
+    description: A plan, or a directory of them, from actions/plan.
+    required: true
+  manifests:
+    description: The manifests, for the limits each origin will tolerate.
+    required: true
+  mode:
+    description: run, enqueue, or auto to decide by how long the plan is.
+    default: auto
+  executor-url:
+    description: The executor to hand long plans to, e.g. https://okibi-executor.example.workers.dev
+    required: false
+  executor-token:
+    description: The secret the executor is called with.
+    required: false
+  okibi-ref:
+    description: Which version of okibi to build.
+    default: main
+
+outputs:
+  mode:
+    description: Which way the plan was actually run.
+    value: ${{ steps.warm.outputs.mode }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v5
+      with:
+        repository: reearth/okibi
+        ref: ${{ inputs.okibi-ref }}
+        path: .okibi-src
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: .okibi-src
+    - name: Build okibi
+      shell: bash
+      run: cargo build --release -p okibi-cli --manifest-path .okibi-src/Cargo.toml
+
+    - name: Warm
+      id: warm
+      shell: bash
+      env:
+        OKIBI: .okibi-src/target/release/okibi
+        EXECUTOR_TOKEN: ${{ inputs.executor-token }}
+      run: |
+        set -euo pipefail
+
+        plans=()
+        if [ -d "${{ inputs.plan }}" ]; then
+          while IFS= read -r file; do plans+=("$file"); done \
+            < <(find "${{ inputs.plan }}" -name '*.json' | sort)
+        else
+          plans=("${{ inputs.plan }}")
+        fi
+
+        if [ ${#plans[@]} -eq 0 ]; then
+          echo "okibi: no plans to run"
+          echo "mode=run" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        mode="${{ inputs.mode }}"
+        for plan in "${plans[@]}"; do
+          # A job stops at six hours. The plan already knows how long it is,
+          # so the decision is a lookup rather than a guess.
+          if [ "$mode" = "auto" ]; then
+            seconds=$(jq -r '.estimate.warm.wall_clock_s' "$plan")
+            if [ "$(printf '%.0f' "$seconds")" -gt 21600 ]; then
+              chosen=enqueue
+            else
+              chosen=run
+            fi
+          else
+            chosen="$mode"
+          fi
+
+          if [ "$chosen" = "enqueue" ]; then
+            if [ -z "${{ inputs.executor-url }}" ]; then
+              echo "okibi: $plan is longer than a job may run and no executor was given" >&2
+              exit 1
+            fi
+            queued=$(curl -sf -X POST "${{ inputs.executor-url }}/plans" \
+              -H "Authorization: Bearer $EXECUTOR_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data-binary "@$plan" | jq -r '.queued')
+            echo "okibi: handed $queued entries from $(basename "$plan") to the executor"
+          else
+            "$OKIBI" warm "$plan" --manifests "${{ inputs.manifests }}"
+          fi
+        done
+
+        echo "mode=${chosen:-run}" >> "$GITHUB_OUTPUT"

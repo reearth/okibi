@@ -85,10 +85,12 @@ jobs:
           # Warming the tiles people ask for in the morning, before morning.
           deadline: ${{ github.event.repository.pushed_at }}
 
-      # actions/warm does not exist yet; until it does, this is what it will do.
-      - name: Warm
-        if: steps.plan.outputs.plan != '' && steps.plan.outputs.mode == 'run'
-        run: |
-          for plan in ${{ steps.plan.outputs.plan }}/*.json; do
-            okibi warm "$plan" --manifests okibi.manifest.json
-          done
+      - uses: reearth/okibi/actions/warm@v1
+        if: steps.plan.outputs.plan != ''
+        with:
+          plan: ${{ steps.plan.outputs.plan }}
+          manifests: okibi.manifest.json
+          # Run it here if it fits in a job, hand it to the executor if not.
+          mode: auto
+          executor-url: ${{ vars.OKIBI_EXECUTOR_URL }}
+          executor-token: ${{ secrets.OKIBI_EXECUTOR_TOKEN }}

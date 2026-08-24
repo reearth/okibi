@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "okibi-executor",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+
+  "observability": { "enabled": true },
+
+  "queues": {
+    "producers": [{ "queue": "okibi-warm", "binding": "WARM_QUEUE" }],
+    "consumers": [
+      {
+        "queue": "okibi-warm",
+        // A batch is what one invocation warms, and max_concurrency bounds how
+        // many invocations run at once. Together they are the ceiling on what
+        // any origin sees; the per-service limit inside a batch is the floor
+        // under that.
+        "max_batch_size": 20,
+        "max_batch_timeout": 30,
+        "max_concurrency": 2,
+        // One retry. A tile that will not generate twice is a tile that gets
+        // generated on demand instead, which is where it started.
+        "max_retries": 1,
+        "dead_letter_queue": "okibi-warm-dlq"
+      }
+    ]
+  },
+
+  "vars": {
+    // How many of each service's tiles to have in flight within one batch.
+    // Should match the concurrency_limit in each service's manifest.
+    "OKIBI_LIMITS": "{\"papers\":4,\"terrain\":8,\"buildings\":8,\"*\":4}"
+  }
+
+  // OKIBI_EXECUTOR_TOKEN is a secret:
+  //   wrangler secret put OKIBI_EXECUTOR_TOKEN
+}
