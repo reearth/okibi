@@ -31,9 +31,7 @@ if it is not in here or in a digest, the planner cannot act on it.
     "billing": {
       "pricing_profile": "cloudflare",
       "per_gen": {
-        "cpu_ms": 1800,
-        "container_memory_gb_s": 15,
-        "container_vcpu_s": 30,
+        "cpu_ms": null,
         "subrequest": 3,
         "storage_class_a": 1,
         "egress_byte": null
@@ -64,9 +62,23 @@ estimates.
 
 `per_gen` is keyed the way the pricing table keys its units, so a cost is the
 two multiplied together with nothing mapping between them. It is also why a
-service can bill for something this specification has never heard of — a
-container's memory-seconds, a GPU — without anyone revising a schema: the
-resource is named in both files, or it is priced at nothing.
+service can bill for something this specification has never heard of without
+anyone revising a schema: the resource is named in both files, or it is priced
+at nothing.
+
+A service that generates somewhere other than the request path — a container,
+a queue of its own, a GPU — names that somewhere:
+
+```jsonc
+"per_gen": { "container_standard_4_s": 7.5, "subrequest": 3 }
+```
+
+Prefer a key that names the machine over keys that name what the machine is
+made of. `container_standard_4_s: 7.5` is checkable — the instance type is
+right there, and moving to a different one changes the key rather than
+quietly editing a number. `container_memory_gb_s: 90` is the same cost with
+the reason it is that cost removed, and a reader cannot tell whether it is
+still true.
 
 A `null` amount says to measure it rather than to assume it. Two resources
 have a measurement that means them: `cpu_ms` falls back to the digest's
@@ -124,8 +136,7 @@ Unit prices for one profile, in one month. Lives in
   "currency": "USD",
   "units": {
     "cpu_ms": 0.0000000125,
-    "container_memory_gb_s": 0.0000025,
-    "container_vcpu_s": 0.00002,
+    "container_standard_4_s": 0.000225,
     "subrequest": 0.0000004,
     "storage_class_a": 0.0000045,
     "egress_byte": 0.0 } }

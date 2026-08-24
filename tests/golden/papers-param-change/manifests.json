@@ -14,9 +14,7 @@
       "billing": {
         "pricing_profile": "cloudflare",
         "per_gen": {
-          "cpu_ms": 1800,
-          "container_memory_gb_s": 15,
-          "container_vcpu_s": 30,
+          "cpu_ms": null,
           "subrequest": 3,
           "storage_class_a": 1,
           "egress_byte": null
