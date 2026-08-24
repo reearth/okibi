@@ -58,7 +58,7 @@ free — cache economics become something a reviewer can see.
 | [`crates/okibi-core`](crates/okibi-core) | the planner and the documents it reads |
 | [`crates/okibi-qk`](crates/okibi-qk) | the projection that makes unlike tile schemes comparable |
 | [`crates/okibi-cli`](crates/okibi-cli) | `digest`, `plan`, `warm`, `invalidation`, `report`, `diff`, `explain` |
-| [`packages/okibi`](packages/okibi) | the projection as wasm, for services |
+| [`packages/okibi`](packages/okibi) | the projection and the digest as wasm, for services |
 | [`packages/okibi-writer`](packages/okibi-writer) | the one call a service makes per tile request |
 | [`workers/executor`](workers/executor) | drains a plan from a queue, for warming that outlasts a CI job |
 | [`actions/`](actions) | `digest` daily, `plan` on a pull request, `warm` after a deploy, `watch` for what no deploy caused |

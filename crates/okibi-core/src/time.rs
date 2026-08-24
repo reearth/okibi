@@ -19,6 +19,31 @@ pub fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
     era * 146_097 + day_of_era - 719_468
 }
 
+/// The date `days` after 1970-01-01, as `YYYY-MM-DD`.
+///
+/// Hinnant's `civil_from_days`, the inverse of the above. What it is for is
+/// the day after a window: a window ends where the next one starts, and
+/// "the next day" is a calendar question rather than an arithmetic one.
+pub fn civil_from_days(days: i64) -> String {
+    let days = days + 719_468;
+    let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
+    let day_of_era = days - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = if month_prime < 10 {
+        month_prime + 3
+    } else {
+        month_prime - 9
+    };
+    let year = year + i64::from(month <= 2);
+
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
 /// `YYYY-MM-DD` at the start of a string, as days since the epoch.
 ///
 /// Takes the date off the front, so an ISO 8601 interval (`2026-08-23/P1D`) and
@@ -103,6 +128,27 @@ mod tests {
         // 2100 is not a leap year, being a century that is not a fourth one.
         let feb = days_from_civil(2100, 2, 28);
         assert_eq!(days_from_civil(2100, 3, 1) - feb, 1);
+    }
+
+    /// Every day for a century, there and back again.
+    #[test]
+    fn a_day_survives_the_round_trip() {
+        for days in 0..36_525 {
+            let date = civil_from_days(days);
+            assert_eq!(date_of(&date), Some(days), "{date}");
+        }
+    }
+
+    #[test]
+    fn the_day_after_a_month_is_in_the_next_one() {
+        let last_of_august = days_from_civil(2026, 8, 31);
+        assert_eq!(civil_from_days(last_of_august + 1), "2026-09-01");
+
+        let leap = days_from_civil(2024, 2, 28);
+        assert_eq!(civil_from_days(leap + 1), "2024-02-29");
+
+        let not_leap = days_from_civil(2100, 2, 28);
+        assert_eq!(civil_from_days(not_leap + 1), "2100-03-01");
     }
 
     #[test]

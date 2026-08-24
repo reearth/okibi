@@ -6,7 +6,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { qk8, quadkeyForPoint, quadkeyForTile, startsWith } from "../nodejs/okibi.js";
+import {
+  assembleDigest,
+  digestQueries,
+  qk8,
+  quadkeyForPoint,
+  quadkeyForTile,
+  startsWith,
+} from "../nodejs/okibi.js";
 
 describe("projection through the binding", () => {
   /// The claim the vocabulary rests on: three services numbering the same
@@ -41,5 +48,88 @@ describe("projection through the binding", () => {
     expect(() => quadkeyForTile("web-mercator", 2, 4, 0)).toThrow();
     expect(() => quadkeyForPoint(181, 0, 8)).toThrow();
     expect(() => qk8("1334")).toThrow();
+  });
+});
+
+describe("the digest, through the binding", () => {
+  it("asks for the day it was given", () => {
+    const { cells, topTiles } = digestQueries(
+      { services: ["papers"], top_rows: 500 },
+      "2026-08-23",
+    );
+
+    expect(cells).toContain("FROM tile_demand_1");
+    expect(cells).toContain("timestamp >= toDateTime('2026-08-23 00:00:00')");
+    expect(cells).toContain("timestamp < toDateTime('2026-08-24 00:00:00')");
+    expect(cells).toContain("index1 IN ('papers')");
+    expect(topTiles).toContain("LIMIT 500");
+  });
+
+  /// The two rules that do not fail visibly when they are left out.
+  it("weighs every frequency and counts organic demand only", () => {
+    const { cells } = digestQueries(undefined, "2026-08-23");
+
+    for (const line of cells.split("\n")) {
+      if (line.includes("double1") || line.includes("double4")) {
+        expect(line, line).toContain("_sample_interval");
+      }
+    }
+    expect(cells).toContain("IF(blob13 = 'organic'");
+  });
+
+  it("reads every service when none are named", () => {
+    expect(digestQueries(undefined, "2026-08-23").cells).not.toContain("index1");
+  });
+
+  it("rolls rows up the way the planner will read them", () => {
+    const { records, skipped } = assembleDigest(
+      [
+        {
+          service: "papers",
+          tileset: "style-aoi-04",
+          kind: "content",
+          qk8: "13300211",
+          req: 48210,
+          miss: "312",
+          p50_gen_ms: 28900,
+          tiles_observed: "1240",
+        },
+      ],
+      [
+        { service: "papers", tileset: "style-aoi-04", kind: "content", qk8: "13300211",
+          qk: "13300211231023", id: "14/14553/6451", req: 1544 },
+        { service: "papers", tileset: "style-aoi-04", kind: "content", qk8: "13300211",
+          qk: "13300211231022", id: "14/14552/6451", req: 1820 },
+      ],
+      "2026-08-23",
+      20,
+    );
+
+    expect(records).toHaveLength(1);
+    expect(records[0].digest).toBe("tile-demand-digest/1");
+    expect(records[0].window).toBe("2026-08-23/P1D");
+    // Numbers arrive as numbers or as strings depending on the aggregate that
+    // produced them, and both are the same number.
+    expect(records[0].tiles_observed).toBe(1240);
+    expect(records[0].miss).toBe(312);
+    // Hottest first, carrying both the quadkey and the id a URL needs.
+    expect(records[0].top_qk).toEqual([
+      ["13300211231022", "14/14552/6451", 1820],
+      ["13300211231023", "14/14553/6451", 1544],
+    ]);
+    expect(skipped).toEqual({ unknown_kind: 0, unplaceable: 0, cells_without_top: 0 });
+  });
+
+  it("reports a row it could not place rather than dropping it", () => {
+    const { records, skipped } = assembleDigest(
+      [{ service: "papers", tileset: "t", kind: "content", qk8: "", req: 1, miss: 0,
+         tiles_observed: 1 }],
+      [],
+      "2026-08-23",
+      20,
+    );
+
+    expect(records).toHaveLength(0);
+    expect(skipped.unplaceable).toBe(1);
   });
 });

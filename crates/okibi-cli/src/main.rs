@@ -5,12 +5,10 @@
 //! `explain` are for reading a plan rather than producing one.
 
 mod config;
-mod digest;
 mod inputs;
 mod invalidation;
 mod report;
 mod review;
-mod sql;
 mod wae;
 mod warm;
 mod window;
@@ -24,11 +22,12 @@ use std::{
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 use okibi_core::{
-    WarmPlan,
+    WarmPlan, aggregate,
     planner::{PlanInput, PlanOptions},
+    query,
 };
 
-use crate::{config::Config, window::Window};
+use crate::config::Config;
 
 #[derive(Parser)]
 #[command(name = "okibi", version, about = "Cache warming for on-demand tiles")]
@@ -248,12 +247,12 @@ async fn run_digest(
 ) -> Result<()> {
     let config = Config::load_or_default(config_path)?;
     let window = match date {
-        Some(date) => Window::parse(date)?,
-        None => Window::yesterday(),
+        Some(date) => window::parse(date)?,
+        None => window::yesterday()?,
     };
 
-    let cells_sql = sql::cells(&config, &window);
-    let tiles_sql = sql::top_tiles(&config, &window);
+    let cells_sql = query::cells(&config.query, &window);
+    let tiles_sql = query::top_tiles(&config.query, &window);
 
     if print_sql {
         println!("-- cells\n{cells_sql}\n\n-- top tiles\n{tiles_sql}");
@@ -263,19 +262,19 @@ async fn run_digest(
     let account = wae::account_from_env(config.account_id.as_deref())?;
     let client = wae::Client::new(&account, wae::token_from_env()?)?;
     let (cells, tiles) = tokio::try_join!(
-        client.query::<digest::CellRow>(&cells_sql),
-        client.query::<digest::TileRow>(&tiles_sql),
+        client.query::<aggregate::CellRow>(&cells_sql),
+        client.query::<aggregate::TileRow>(&tiles_sql),
     )?;
 
     let asked_for = tiles.len();
-    let (records, skipped) = digest::assemble(cells, tiles, &window, config.top_n);
+    let (records, skipped) = aggregate::assemble(cells, tiles, &window, config.query.top_n);
 
     let mut lines = String::new();
     for record in &records {
         lines.push_str(&serde_json::to_string(record)?);
         lines.push('\n');
     }
-    write_out(&lines, out, &format!("{}.jsonl", window.date))?;
+    write_out(&lines, out, &format!("{}.jsonl", window.date()))?;
 
     report_digest(&skipped, asked_for, &config, records.len());
     Ok(())
@@ -510,7 +509,7 @@ fn duration(seconds: f64) -> String {
 
 /// Say what was left out. A digest that silently described less than it was
 /// asked to would read as a quiet day rather than as a truncated query.
-fn report_digest(skipped: &digest::Skipped, tile_rows: usize, config: &Config, records: usize) {
+fn report_digest(skipped: &aggregate::Skipped, tile_rows: usize, config: &Config, records: usize) {
     if skipped.unknown_kind > 0 {
         eprintln!(
             "okibi: {} cells named a kind this version does not have",
@@ -529,11 +528,11 @@ fn report_digest(skipped: &digest::Skipped, tile_rows: usize, config: &Config, r
             skipped.cells_without_top
         );
     }
-    if tile_rows >= config.top_rows {
+    if tile_rows >= config.query.top_rows {
         eprintln!(
             "okibi: the top-tiles query hit its {} row limit, so the coldest cells \
              may be described less finely than the rest",
-            config.top_rows
+            config.query.top_rows
         );
     }
 }

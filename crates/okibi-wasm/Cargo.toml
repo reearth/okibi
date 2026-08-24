@@ -11,5 +11,10 @@ version.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+okibi-core.workspace = true
 okibi-qk.workspace = true
+serde.workspace = true
+# Structured values across the boundary. The alternative is JSON strings on
+# both sides, which means parsing a digest twice to hand it to a bucket.
+serde-wasm-bindgen = "0.6"
 wasm-bindgen.workspace = true

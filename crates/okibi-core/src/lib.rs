@@ -10,6 +10,7 @@
 //! The planning itself is not here yet — see `spec/planner.md` for the
 //! algorithm it owes. What is here is the digest it will read.
 
+pub mod aggregate;
 pub mod digest;
 pub mod estimate;
 pub mod invalidation;
@@ -17,7 +18,9 @@ pub mod manifest;
 pub mod plan;
 pub mod planner;
 pub mod pricing;
+pub mod query;
 pub mod time;
+pub mod window;
 
 pub use digest::{DigestRecord, Kind, TopEntry, TopTile};
 pub use invalidation::{Axis, InvalidationEvent, Scope};
@@ -25,3 +28,5 @@ pub use manifest::{Epoch, ServiceManifest, ZoomSemantics};
 pub use plan::{Entry, Lane, WarmPlan};
 pub use planner::{PlanError, PlanInput, PlanOptions, Sources, plan};
 pub use pricing::PricingTable;
+pub use query::DigestQuery;
+pub use window::Window;

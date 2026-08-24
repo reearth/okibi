@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
+use okibi_core::DigestQuery;
 use serde::{Deserialize, Serialize};
 
 pub const CONFIG_VERSION: &str = "okibi-digest-config/1";
@@ -22,30 +23,9 @@ pub struct Config {
     /// see [`crate::wae::account_from_env`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
-    /// The dataset name, whose trailing number is the schema version.
-    #[serde(default = "default_dataset")]
-    pub dataset: String,
-    /// The services to read. Empty means every service in the dataset.
-    #[serde(default)]
-    pub services: Vec<String>,
-    /// How many top tiles to record per cell.
-    #[serde(default = "default_top_n")]
-    pub top_n: usize,
-    /// The most tile-level rows to ask for when finding those top tiles.
-    #[serde(default = "default_top_rows")]
-    pub top_rows: usize,
-}
-
-fn default_dataset() -> String {
-    "tile_demand_1".to_string()
-}
-
-fn default_top_n() -> usize {
-    20
-}
-
-fn default_top_rows() -> usize {
-    10_000
+    /// What the queries are shaped by, which is okibi's own document.
+    #[serde(flatten)]
+    pub query: DigestQuery,
 }
 
 impl Default for Config {
@@ -60,10 +40,7 @@ impl Default for Config {
         Config {
             config: CONFIG_VERSION.to_string(),
             account_id: None,
-            dataset: default_dataset(),
-            services: Vec::new(),
-            top_n: default_top_n(),
-            top_rows: default_top_rows(),
+            query: DigestQuery::default(),
         }
     }
 }
@@ -108,10 +85,10 @@ mod tests {
             serde_json::from_str(r#"{"config": "okibi-digest-config/1", "account_id": "abc"}"#)
                 .unwrap();
 
-        assert_eq!(config.dataset, "tile_demand_1");
+        assert_eq!(config.query.dataset, "tile_demand_1");
         assert_eq!(config.account_id.as_deref(), Some("abc"));
-        assert_eq!(config.top_n, 20);
-        assert!(config.services.is_empty());
+        assert_eq!(config.query.top_n, 20);
+        assert!(config.query.services.is_empty());
     }
 
     /// An installation that wants nothing unusual should configure nothing.
@@ -121,9 +98,9 @@ mod tests {
         let _ = std::fs::remove_file(&missing);
 
         let config = Config::load_or_default(&missing).unwrap();
-        assert_eq!(config.dataset, "tile_demand_1");
+        assert_eq!(config.query.dataset, "tile_demand_1");
         assert!(
-            config.services.is_empty(),
+            config.query.services.is_empty(),
             "which reads every service in the dataset"
         );
     }

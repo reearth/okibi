@@ -7,6 +7,7 @@
 //! the same compiled code the planner runs, rather than a second
 //! implementation of the same arithmetic that agrees with it today.
 
+use okibi_core::{DigestQuery, Window, aggregate, query};
 use okibi_qk::{Quadkey, Scheme, Tile};
 use wasm_bindgen::prelude::*;
 
@@ -83,4 +84,71 @@ pub fn starts_with(quadkey: &str, prefix: &str) -> Result<bool, JsError> {
 
 fn to_js(error: okibi_qk::Error) -> JsError {
     JsError::new(&error.to_string())
+}
+
+/// The two queries a digest is made of, for a day.
+///
+/// Returns `{ "cells": "SELECT …", "topTiles": "SELECT …" }`. Running them and
+/// keeping the answer is the caller's job; what the answer has to be asked for
+/// is not, because two rules of the binding live in the text — every frequency
+/// carries the sampling weight, and demand counts organic requests only —
+/// and neither fails visibly when it is left out.
+#[wasm_bindgen(js_name = digestQueries)]
+pub fn digest_queries(config: JsValue, date: &str) -> Result<JsValue, JsError> {
+    let config: DigestQuery = if config.is_undefined() || config.is_null() {
+        DigestQuery::default()
+    } else {
+        serde_wasm_bindgen::from_value(config).map_err(|e| JsError::new(&e.to_string()))?
+    };
+    let window = Window::parse(date).map_err(|e| JsError::new(&e.to_string()))?;
+
+    let queries = Queries {
+        cells: query::cells(&config, &window),
+        top_tiles: query::top_tiles(&config, &window),
+    };
+    serde_wasm_bindgen::to_value(&queries).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Queries {
+    cells: String,
+    top_tiles: String,
+}
+
+/// Roll query rows up into digest records.
+///
+/// The same function `okibi digest` uses, rather than a second one that agrees
+/// with it today: which cell an unplaced request belongs to, how a tie between
+/// two equally hot tiles is broken, what happens to a row that cannot be
+/// placed — none of these fail loudly when they differ, and a digest that
+/// means something slightly different is a plan that warms somewhere slightly
+/// wrong.
+///
+/// Returns `{ records, skipped }`. What was skipped is reported rather than
+/// dropped: a digest that quietly covered less than it was asked to reads as a
+/// quiet day.
+#[wasm_bindgen(js_name = assembleDigest)]
+pub fn assemble_digest(
+    cells: JsValue,
+    tiles: JsValue,
+    date: &str,
+    top_n: usize,
+) -> Result<JsValue, JsError> {
+    let cells: Vec<aggregate::CellRow> =
+        serde_wasm_bindgen::from_value(cells).map_err(|e| JsError::new(&e.to_string()))?;
+    let tiles: Vec<aggregate::TileRow> =
+        serde_wasm_bindgen::from_value(tiles).map_err(|e| JsError::new(&e.to_string()))?;
+    let window = Window::parse(date).map_err(|e| JsError::new(&e.to_string()))?;
+
+    let (records, skipped) = aggregate::assemble(cells, tiles, &window, top_n);
+    let assembled = Assembled { records, skipped };
+
+    serde_wasm_bindgen::to_value(&assembled).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[derive(serde::Serialize)]
+struct Assembled {
+    records: Vec<okibi_core::DigestRecord>,
+    skipped: aggregate::Skipped,
 }

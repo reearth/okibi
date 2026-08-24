@@ -2,10 +2,12 @@
 
 use std::collections::BTreeMap;
 
-use okibi_core::digest::{DigestRecord, Kind, TopEntry, TopTile, UNPLACED};
 use serde::{Deserialize, Deserializer};
 
-use crate::window::Window;
+use crate::{
+    digest::{DigestRecord, Kind, TopEntry, TopTile, UNPLACED},
+    window::Window,
+};
 
 /// One row of the cells query.
 #[derive(Debug, Clone, Deserialize)]
@@ -48,23 +50,59 @@ pub struct TileRow {
 /// ClickHouse's JSON writes 64-bit integers as strings and floats as numbers,
 /// and which a column is depends on the aggregate that produced it. Both are
 /// the same number here.
+///
+/// Written as a visitor rather than through a JSON value, so that this crate
+/// does not need a JSON library to read rows that arrive as JSON. What
+/// arrives is the caller's business; what a number is, is not.
+struct Number;
+
+impl<'de> serde::de::Visitor<'de> for Number {
+    type Value = f64;
+
+    fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("a number, or a number written as a string")
+    }
+
+    fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<f64, E> {
+        Ok(value)
+    }
+
+    fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<f64, E> {
+        Ok(value as f64)
+    }
+
+    fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<f64, E> {
+        Ok(value as f64)
+    }
+
+    fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<f64, E> {
+        value.parse().map_err(serde::de::Error::custom)
+    }
+
+    fn visit_none<E: serde::de::Error>(self) -> Result<f64, E> {
+        Ok(0.0)
+    }
+
+    fn visit_unit<E: serde::de::Error>(self) -> Result<f64, E> {
+        Ok(0.0)
+    }
+
+    fn visit_some<D: Deserializer<'de>>(self, deserializer: D) -> Result<f64, D::Error> {
+        deserializer.deserialize_any(Number)
+    }
+}
+
 fn number<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
-    use serde::de::Error;
-    Ok(match serde_json::Value::deserialize(deserializer)? {
-        serde_json::Value::Number(n) => n.as_f64().unwrap_or_default(),
-        serde_json::Value::String(s) => s.parse().map_err(D::Error::custom)?,
-        serde_json::Value::Null => 0.0,
-        other => return Err(D::Error::custom(format!("{other} is not a number"))),
-    })
+    deserializer.deserialize_any(Number)
 }
 
 fn maybe_number<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<f64>, D::Error> {
-    let value = number(deserializer)?;
+    let value = deserializer.deserialize_option(Number)?;
     Ok(value.is_finite().then_some(value))
 }
 
 /// What the rows did not become, so that nothing is dropped quietly.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, serde::Serialize)]
 pub struct Skipped {
     /// Rows naming a kind this version of the vocabulary does not have.
     pub unknown_kind: usize,

@@ -10,7 +10,51 @@
 //! the truth, it is an arbitrary number, and warm requests counted as demand
 //! are a feedback loop.
 
-use crate::{config::Config, window::Window};
+use serde::{Deserialize, Serialize};
+
+use crate::window::Window;
+
+pub const QUERY_VERSION: &str = "okibi-digest-config/1";
+
+/// What a digest run needs to know beyond credentials.
+///
+/// One run covers every service, because the dataset is one dataset indexed by
+/// service. An empty `services` reads all of them, which is the usual case:
+/// the dataset is already the list of who writes events.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DigestQuery {
+    #[serde(default = "default_dataset")]
+    pub dataset: String,
+    #[serde(default)]
+    pub services: Vec<String>,
+    #[serde(default = "default_top_n")]
+    pub top_n: usize,
+    #[serde(default = "default_top_rows")]
+    pub top_rows: usize,
+}
+
+fn default_dataset() -> String {
+    "tile_demand_1".to_string()
+}
+
+fn default_top_n() -> usize {
+    20
+}
+
+fn default_top_rows() -> usize {
+    10_000
+}
+
+impl Default for DigestQuery {
+    fn default() -> Self {
+        DigestQuery {
+            dataset: default_dataset(),
+            services: Vec::new(),
+            top_n: default_top_n(),
+            top_rows: default_top_rows(),
+        }
+    }
+}
 
 /// Single-quoted for SQL, with quotes doubled.
 ///
@@ -20,7 +64,7 @@ fn quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
-fn service_filter(config: &Config) -> String {
+fn service_filter(config: &DigestQuery) -> String {
     if config.services.is_empty() {
         return String::new();
     }
@@ -29,7 +73,7 @@ fn service_filter(config: &Config) -> String {
 }
 
 /// One row per `(service, tileset, kind, qk8)`: the cells themselves.
-pub fn cells(config: &Config, window: &Window) -> String {
+pub fn cells(config: &DigestQuery, window: &Window) -> String {
     let (from, to) = window.bounds();
     format!(
         "SELECT
@@ -63,7 +107,7 @@ FORMAT JSON",
 /// limit is a plain one rather than a per-cell one so that the query stays
 /// portable SQL. What that costs is that the coldest cells may run out of rows
 /// before they are described — which the caller reports rather than hides.
-pub fn top_tiles(config: &Config, window: &Window) -> String {
+pub fn top_tiles(config: &DigestQuery, window: &Window) -> String {
     let (from, to) = window.bounds();
     format!(
         "SELECT
@@ -94,12 +138,11 @@ FORMAT JSON",
 mod tests {
     use super::*;
 
-    fn config() -> Config {
-        serde_json::from_str(
-            r#"{"config": "okibi-digest-config/1", "account_id": "acc",
-                "services": ["papers", "terrain"]}"#,
-        )
-        .unwrap()
+    fn config() -> DigestQuery {
+        DigestQuery {
+            services: vec!["papers".into(), "terrain".into()],
+            ..DigestQuery::default()
+        }
     }
 
     fn window() -> Window {

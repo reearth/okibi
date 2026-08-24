@@ -30,6 +30,31 @@ coordinates mean different ground in each.
 Also here: `quadkeyForTileAt` for a level other than the tile's own,
 `quadkeyForPoint`, and `startsWith` for matching an invalidation scope.
 
+## The digest
+
+The same aggregation `okibi digest` runs, for a service that would rather take
+its own digest from a Worker cron than from a scheduled CI job:
+
+```ts
+import { assembleDigest, digestQueries } from "@reearth/okibi";
+
+const { cells, topTiles } = digestQueries({ services: ["papers"] }, "2026-08-23");
+const { records, skipped } = assembleDigest(cellRows, tileRows, "2026-08-23", 20);
+```
+
+It is here rather than rewritten in TypeScript for the same reason the
+projection is. Which cell an unplaced request belongs to, how a tie between
+two equally hot tiles breaks, what happens to a row that cannot be placed —
+none of those fail loudly when two implementations disagree, and a digest that
+means something slightly different is a plan that warms somewhere slightly
+wrong.
+
+Two rules of the [binding](../../spec/bindings/wae-1.md) live in the query text
+for the same reason: every frequency carries `_sample_interval`, and demand
+counts organic requests only.
+[`examples/okibi-digest-cron.ts`](../../examples/okibi-digest-cron.ts) is the
+rest of what a Worker needs, which is an HTTP call and a bucket write.
+
 Planning is not in this package yet. When it is, it arrives as more exports
 from the same place.
 
