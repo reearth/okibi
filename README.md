@@ -99,6 +99,15 @@ request. Everything after that happens outside the service —
 [`examples/service-workflow.yml`](examples/service-workflow.yml) is the whole
 of it.
 
+## The name
+
+**okibi** (熾火) is the fire that stays under the ash after the flames have
+gone out — embers, still hot, ready to be brought back with very little work.
+
+Which is the job. The cache is not kept burning, and it is not allowed to go
+cold either; after an invalidation, the heat that is still worth having is put
+back where it was.
+
 ## License
 
 Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your
