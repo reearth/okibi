@@ -13,7 +13,6 @@
       "service": "papers",
       "priority": 1.0,
       "lane": "warm",
-      "not_before": null,
       "expected_gen_ms": 120,
       "saved_req_estimate": 9120
     },
@@ -22,7 +21,6 @@
       "service": "papers",
       "priority": 0.982,
       "lane": "warm",
-      "not_before": null,
       "expected_gen_ms": 34120,
       "saved_req_estimate": 1820
     }

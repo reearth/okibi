@@ -136,7 +136,7 @@ diffed, reviewed and re-derived.
   "entries": [
     { "url": "https://papers.reearth.land/t/style-aoi-04/14/14552/6451?e=style-aoi-04@r13",
       "service": "papers", "priority": 0.982,
-      "lane": "warm", "not_before": null,
+      "lane": "warm",
       "expected_gen_ms": 34120, "saved_req_estimate": 1820 }
   ],
   "stats": { "total": 4210, "sum_expected_gen_ms": 9.1e7, "coverage_of_demand": 0.93 },
@@ -161,8 +161,8 @@ anyone asks. See [the planner](planner.md#determinism) for what makes that
 true rather than merely intended.
 
 `entries` are ordered. The executor takes them from the top and needs to
-understand nothing else — `lane`, `not_before` and the rate limits are all it
-reads. Anything that can issue GETs in order is a conforming executor.
+understand nothing else — `lane`, the optional `not_before`, and the rate
+limits are all it reads. Anything that can issue GETs in order is a conforming executor.
 
 `estimate` is computed with the plan and not by a second pass, which is why
 there is no separate "how much would this cost" mode anywhere in okibi. What

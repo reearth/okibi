@@ -86,10 +86,52 @@ fn as_numbers(value: &serde_json::Value) -> serde_json::Value {
     }
 }
 
-/// The crate's own type has to be the document the specification describes,
-/// not merely something with the same field names: reading an example and
-/// writing it back must produce the same JSON, and that JSON must still
-/// satisfy the schema.
+/// Reads an example into `T`, writes it back, and insists on getting the same
+/// document that still satisfies the schema.
+///
+/// A type with the right field names is not the same thing as a type that is
+/// the document: a dropped optional field, a renamed variant or a silently
+/// defaulted value all survive `from_value` and none survive this.
+fn round_trips<T: serde::Serialize + serde::de::DeserializeOwned>(example: &str, schema: &str) {
+    let validator = jsonschema::validator_for(&read_json(&spec_dir().join("schema").join(schema)))
+        .unwrap_or_else(|e| panic!("{schema}: {e}"));
+
+    let original = read_json(&spec_dir().join("examples").join(example));
+    let value: T =
+        serde_json::from_value(original.clone()).unwrap_or_else(|e| panic!("{example}: {e}"));
+    let written = serde_json::to_value(&value).expect("serialise");
+
+    assert_eq!(
+        as_numbers(&written),
+        as_numbers(&original),
+        "{example} did not survive the round trip"
+    );
+
+    let errors: Vec<String> = validator
+        .iter_errors(&written)
+        .map(|e| e.to_string())
+        .collect();
+    assert!(
+        errors.is_empty(),
+        "{example} left the schema:\n{}",
+        errors.join("\n")
+    );
+}
+
+#[test]
+fn the_contract_types_are_the_documents_the_spec_describes() {
+    round_trips::<okibi_core::ServiceManifest>(
+        "service-manifest.json",
+        "service-manifest.schema.json",
+    );
+    round_trips::<okibi_core::InvalidationEvent>(
+        "invalidation-event.json",
+        "invalidation-event.schema.json",
+    );
+    round_trips::<okibi_core::PricingTable>("pricing-table.json", "pricing-table.schema.json");
+    round_trips::<okibi_core::WarmPlan>("warm-plan.json", "warm-plan.schema.json");
+}
+
 #[test]
 fn the_digest_type_round_trips_through_the_spec_examples() {
     let schema_path = spec_dir().join("schema").join("demand-digest.schema.json");
