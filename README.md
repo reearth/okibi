@@ -61,7 +61,7 @@ free — cache economics become something a reviewer can see.
 | [`packages/okibi`](packages/okibi) | the projection as wasm, for services |
 | [`packages/okibi-writer`](packages/okibi-writer) | the one call a service makes per tile request |
 | [`workers/executor`](workers/executor) | drains a plan from a queue, for warming that outlasts a CI job |
-| [`actions/`](actions) | `plan` on a pull request, `warm` after a deploy, `watch` for what no deploy caused |
+| [`actions/`](actions) | `digest` daily, `plan` on a pull request, `warm` after a deploy, `watch` for what no deploy caused |
 
 Warming is hours of waiting on IO. A Worker bills CPU time, so waiting there
 costs almost nothing; a CI job is a rented machine sitting idle, and stops at

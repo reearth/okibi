@@ -4,6 +4,10 @@ name: Digest
 # demand model wants, so a digest is taken daily and kept somewhere that does
 # not expire. That obligation comes with the binding — see
 # spec/bindings/wae-1.md — and this is where it is discharged.
+#
+# The work is in actions/digest. What is left here is a schedule and a set of
+# credentials, which is all an installation is: another one would copy this
+# file into its own repository and change nothing but the secrets.
 on:
   schedule:
     - cron: "0 18 * * *" # 03:00 JST
@@ -16,6 +20,9 @@ on:
 concurrency:
   group: okibi-digest
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   digest:
@@ -31,32 +38,11 @@ jobs:
     # so a fork inherits a cron with nothing behind it. Skipping rather than
     # failing means a fork gets silence instead of a daily red cross.
     if: vars.OKIBI_ACCOUNT_ID != ''
+
     steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Take the digest
-        env:
-          OKIBI_CF_API_TOKEN: ${{ secrets.OKIBI_CF_API_TOKEN }}
-          # The account id stays out of the committed config: this
-          # repository is public, and it is an identifier nobody needs
-          # published.
-          OKIBI_ACCOUNT_ID: ${{ vars.OKIBI_ACCOUNT_ID }}
-        run: |
-          cargo run --release -p okibi-cli -- digest \
-            ${{ inputs.date && format('--date {0}', inputs.date) || '' }} \
-            --out digests/
-
-      # The digests are the thing that outlives the retention window, so they
-      # go to a bucket rather than to an artifact that expires in ninety days
-      # for its own reasons.
-      - name: Keep it
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.OKIBI_R2_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.OKIBI_ACCOUNT_ID }}
-        run: |
-          for file in digests/*.jsonl; do
-            npx --yes wrangler@4 r2 object put \
-              "okibi/digests/$(basename "$file")" --file "$file" --remote
-          done
+      - uses: reearth/okibi/actions/digest@main
+        with:
+          account-id: ${{ vars.OKIBI_ACCOUNT_ID }}
+          api-token: ${{ secrets.OKIBI_CF_API_TOKEN }}
+          r2-token: ${{ secrets.OKIBI_R2_TOKEN }}
+          date: ${{ inputs.date }}

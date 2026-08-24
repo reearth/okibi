@@ -1,0 +1,100 @@
+name: okibi digest
+description: Aggregate a day of tile-demand events and keep the result.
+
+# One run covers every service, because the dataset is one dataset indexed by
+# service: splitting it per service would be the same query with a different
+# constant in it. That makes this the one scheduled thing okibi does centrally,
+# and the reason it is an action rather than a workflow — where the schedule
+# lives is an installation's business, not the tool's.
+#
+# The obligation itself comes from the binding: Analytics Engine keeps three
+# months, which is shorter than the history a demand model wants, so a digest
+# is taken daily and put somewhere that does not expire.
+# See spec/bindings/wae-1.md.
+
+inputs:
+  account-id:
+    description: The Cloudflare account the dataset belongs to.
+    required: true
+  api-token:
+    description: Token that may read the Analytics Engine SQL API.
+    required: true
+  r2-token:
+    description: Token that may write the bucket. Defaults to api-token.
+    required: false
+  bucket:
+    description: R2 bucket the digests are kept in.
+    default: okibi
+  prefix:
+    description: Key prefix within the bucket.
+    default: digests
+  config:
+    description: >
+      Path to a digest config. Optional: with no file, every service in the
+      dataset is aggregated, which is what the dataset already says.
+    default: services.json
+  date:
+    description: The day to aggregate. Defaults to yesterday, in UTC.
+    required: false
+  okibi-ref:
+    description: Which version of okibi to build.
+    default: main
+
+outputs:
+  file:
+    description: The digest that was written, locally.
+    value: ${{ steps.digest.outputs.file }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v5
+      with:
+        repository: reearth/okibi
+        ref: ${{ inputs.okibi-ref }}
+        path: .okibi-src
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: .okibi-src
+    - name: Build okibi
+      shell: bash
+      run: cargo build --release -p okibi-cli --manifest-path .okibi-src/Cargo.toml
+
+    - name: Take the digest
+      id: digest
+      shell: bash
+      env:
+        OKIBI_ACCOUNT_ID: ${{ inputs.account-id }}
+        OKIBI_CF_API_TOKEN: ${{ inputs.api-token }}
+        CONFIG: ${{ inputs.config }}
+      run: |
+        set -euo pipefail
+        mkdir -p .okibi/digests
+
+        # The config is optional, and saying so here keeps the CLI from having
+        # to distinguish "you pointed me at a file that is not there" from
+        # "there is no file, which is fine".
+        args=()
+        [ -f "$CONFIG" ] && args+=(--config "$CONFIG")
+        [ -n "${{ inputs.date }}" ] && args+=(--date "${{ inputs.date }}")
+
+        .okibi-src/target/release/okibi digest "${args[@]}" --out .okibi/digests/
+
+        file=$(find .okibi/digests -name '*.jsonl' | head -1)
+        echo "file=$file" >> "$GITHUB_OUTPUT"
+
+    # Digests are the thing that outlives the retention window, so they go to a
+    # bucket rather than to an artifact that expires for reasons of its own.
+    - name: Keep it
+      shell: bash
+      env:
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.account-id }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.r2-token || inputs.api-token }}
+      run: |
+        set -euo pipefail
+        for file in .okibi/digests/*.jsonl; do
+          npx --yes wrangler@4 r2 object put \
+            "${{ inputs.bucket }}/${{ inputs.prefix }}/$(basename "$file")" \
+            --file "$file" --remote
+        done
