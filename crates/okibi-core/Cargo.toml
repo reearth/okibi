@@ -1,0 +1,11 @@
+[package]
+name = "okibi-core"
+description = "The okibi planner: plan(digest, invalidation, manifest) -> warm_plan, as a pure function"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+okibi-qk.workspace = true

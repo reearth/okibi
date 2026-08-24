@@ -1,0 +1,11 @@
+# Design notes, which live beside the code rather than in it.
+/tmp
+
+# Build output, at any depth. Rooted at `/target` this would miss the one a
+# standalone crate makes for itself.
+target/
+
+node_modules/
+
+# wasm-pack writes its npm package here, next to the crate it built from.
+pkg/

@@ -1,0 +1,15 @@
+[package]
+name = "okibi-cli"
+description = "Command line access to okibi: digest, plan, estimate, warm, diff, explain"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "okibi"
+path = "src/main.rs"
+
+[dependencies]
+okibi-core.workspace = true

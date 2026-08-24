@@ -1,0 +1,10 @@
+[package]
+name = "okibi-qk"
+description = "Quadkey projection for tile schemes that okibi's demand ledger normalises into one space"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
