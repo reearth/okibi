@@ -6,6 +6,12 @@
 target/
 
 node_modules/
+dist/
 
-# wasm-pack writes its npm package here, next to the crate it built from.
-pkg/
+# wasm-pack writes its output here, next to the package that publishes it.
+packages/okibi/bundler/
+packages/okibi/nodejs/
+
+# Staged into each package at publish time, from the copies at the root.
+packages/*/LICENSE-MIT
+packages/*/LICENSE-APACHE

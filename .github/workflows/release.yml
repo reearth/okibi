@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-npm:
+    name: Publish ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    strategy:
+      # One at a time. Two npm publishes racing for the same OIDC exchange is
+      # a failure mode nobody needs to debug on a release.
+      max-parallel: 1
+      matrix:
+        include:
+          - package: "@reearth/okibi"
+            directory: packages/okibi
+          - package: "@reearth/okibi-writer"
+            directory: packages/okibi-writer
+
+    # `npm` is a deployment environment with required reviewers and a `v*` tag
+    # policy. Authentication is npm Trusted Publishing: the workflow's OIDC
+    # token is exchanged for a short-lived publish token, so there is no
+    # NPM_TOKEN secret to leak or rotate. The trusted publisher has to be
+    # registered on npmjs.com against this repo + workflow + environment
+    # first; for the very first version, before the package exists on npm,
+    # publish once by hand and let CI take over from the next tag.
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/${{ matrix.package }}
+    permissions:
+      contents: read
+      id-token: write # Trusted Publishing, and the provenance attestation
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm32
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      # Trusted Publishing needs npm >= 11.5.1, which is newer than the one
+      # bundled with node 22. The version is pinned in each package.json so
+      # that a local `npm publish` and this one do the same thing.
+      - name: Activate the pinned npm
+        working-directory: ${{ matrix.directory }}
+        run: |
+          corepack enable npm
+          npm --version
+
+      # wasm-bindgen-cli and the wasm-bindgen crate must agree exactly, so the
+      # CLI is pinned to the version the lockfile resolved rather than to
+      # whatever crates.io published this week.
+      - name: Install wasm-pack
+        if: matrix.package == '@reearth/okibi'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Take the version from the tag
+        working-directory: ${{ matrix.directory }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          npm version "$version" --no-git-tag-version --allow-same-version
+
+      - name: Publish
+        working-directory: ${{ matrix.directory }}
+        run: |
+          set -euo pipefail
+
+          # Idempotent: a re-run after a partial release should publish what
+          # is missing and say nothing about what is already there.
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "::notice::$name@$version is already on npm, skipping"
+            exit 0
+          fi
+
+          # prepublishOnly builds and stages the licences. --provenance is
+          # implied by Trusted Publishing, but passing it explicitly makes a
+          # misconfigured environment fail loudly instead of quietly
+          # publishing something unattested.
+          npm publish --provenance --access public
+
+  # crates.io is not published to yet. okibi-core and okibi-qk are worth
+  # publishing the day something outside this repository wants to link them;
+  # until then the only consumer is the CLI in this workspace, and a crate
+  # published without a consumer is a version number to maintain for nobody.

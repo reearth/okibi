@@ -1,18 +1,38 @@
 # @reearth/okibi
 
-The projection a service needs when it writes `tile.qk`, which is
-[`okibi-qk`](../../crates/okibi-qk) compiled to wasm rather than a second
-implementation of the same arithmetic.
+The projection a service needs when it writes `tile.qk`: the
+[okibi planner's own](../../crates/okibi-qk), compiled to wasm rather than
+reimplemented in TypeScript.
+
+The arithmetic is easy to write twice and hard to notice being subtly wrong.
+A tile projected into the wrong cell is invisible — the events keep arriving,
+the digest keeps aggregating — until a plan warms the wrong part of the world.
 
 ```ts
 import { qk8, quadkeyForTile } from "@reearth/okibi";
 
+// Terrain: geographic, two root tiles wide, y from the south.
 const qk = quadkeyForTile("geographic-tms", 14, 29108, 11439);
-qk8(qk); // the cell a demand digest aggregates into
+qk8(qk); // "13300211" — the cell a demand digest aggregates into
 ```
 
-`pkg/` is built, not committed. Run `pnpm build` here, or
-`scripts/build-wasm.sh` from the repository root, before anything imports this.
+Schemes: `web-mercator`, `web-mercator-tms`, `geographic`, `geographic-tms`.
+A tile's centre point is what crosses between them, because the same
+coordinates mean different ground in each.
 
-Planning is not in here yet. When it is, it arrives as more exports from this
-same package.
+Also here: `quadkeyForTileAt` for a level other than the tile's own,
+`quadkeyForPoint`, and `startsWith` for matching an invalidation scope.
+
+Planning is not in this package yet. When it is, it arrives as more exports
+from the same place.
+
+## Building
+
+`pkg` is built, not committed:
+
+```sh
+pnpm build   # or scripts/build-wasm.sh from the repository root
+```
+
+Two targets ship. `bundler` is what wrangler bundles into a Worker; `nodejs`
+is what a test can import directly. The export map picks between them.

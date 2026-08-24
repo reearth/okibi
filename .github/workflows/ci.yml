@@ -28,8 +28,8 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
-  wasm:
-    name: wasm
+  node:
+    name: Node
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -37,22 +37,19 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm32
       - uses: jetli/wasm-pack-action@v0.4.0
-
-      # Nothing on the Node side imports the built package yet, so this is
-      # what catches a binding that stopped compiling.
-      - run: ./scripts/build-wasm.sh --release
-
-  node:
-    name: Node
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
+
+      # @reearth/okibi is built, not committed, and its tests import what the
+      # build produces — which is the only place the binding itself is
+      # exercised rather than the Rust behind it.
+      - run: ./scripts/build-wasm.sh --release
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck

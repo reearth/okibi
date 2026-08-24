@@ -1,25 +1,50 @@
 {
   "name": "@reearth/okibi",
-  "version": "0.0.0",
-  "private": true,
-  "description": "The planner's own projection, compiled to wasm for services to use at request time",
+  "version": "0.1.0",
+  "description": "The okibi planner's own quadkey projection, for services writing tile-demand events",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/reearth/okibi.git",
     "directory": "packages/okibi"
   },
+  "homepage": "https://github.com/reearth/okibi",
+  "keywords": ["tiles", "quadkey", "cache", "wasm", "webassembly", "cloudflare-workers"],
   "type": "module",
-  "main": "./pkg/okibi.js",
-  "types": "./pkg/okibi.d.ts",
+  "packageManager": "npm@11.15.0",
   "exports": {
     ".": {
-      "types": "./pkg/okibi.d.ts",
-      "default": "./pkg/okibi.js"
-    }
+      "workerd": {
+        "types": "./bundler/okibi.d.ts",
+        "default": "./bundler/okibi.js"
+      },
+      "node": {
+        "types": "./nodejs/okibi.d.ts",
+        "default": "./nodejs/okibi.js"
+      },
+      "import": {
+        "types": "./bundler/okibi.d.ts",
+        "default": "./bundler/okibi.js"
+      }
+    },
+    "./bundler": {
+      "types": "./bundler/okibi.d.ts",
+      "default": "./bundler/okibi.js"
+    },
+    "./nodejs": {
+      "types": "./nodejs/okibi.d.ts",
+      "default": "./nodejs/okibi.js"
+    },
+    "./package.json": "./package.json"
   },
-  "files": ["pkg"],
+  "files": ["bundler", "nodejs", "README.md", "LICENSE-MIT", "LICENSE-APACHE"],
+  "sideEffects": ["*.wasm", "./bundler/okibi.js", "./nodejs/okibi.js"],
   "scripts": {
-    "build": "../../scripts/build-wasm.sh --release"
+    "build": "../../scripts/build-wasm.sh --release",
+    "test": "vitest run",
+    "prepublishOnly": "../../scripts/build-wasm.sh --release && ../../scripts/stage-licenses.sh"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
   }
 }
