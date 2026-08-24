@@ -96,6 +96,13 @@ rest of what a Worker needs, which is an HTTP call and a bucket write.
 Planning is not here yet. When it is, it arrives as more exports from the same
 place.
 
+## In a Worker
+
+A Worker importing both entry points bundles to about 78 KiB gzipped, wasm
+included. `wrangler deploy --dry-run` over a Worker that calls `createWriter`
+and `quadkeyForTile` is what that number is measured from, and is worth
+running once against a service before believing the build works there.
+
 ## Building
 
 ```sh

@@ -10,6 +10,9 @@ importers:
 
   packages/okibi:
     devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^5.20260823.1
+        version: 5.20260823.1
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

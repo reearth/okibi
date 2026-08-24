@@ -9,7 +9,15 @@
     "directory": "packages/okibi"
   },
   "homepage": "https://github.com/reearth/okibi",
-  "keywords": ["tiles", "quadkey", "cache", "cache-warming", "wasm", "cloudflare-workers", "analytics-engine"],
+  "keywords": [
+    "tiles",
+    "quadkey",
+    "cache",
+    "cache-warming",
+    "wasm",
+    "cloudflare-workers",
+    "analytics-engine"
+  ],
   "type": "module",
   "packageManager": "npm@11.15.0",
   "exports": {
@@ -41,8 +49,19 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["bundler", "nodejs", "dist", "README.md", "LICENSE-MIT", "LICENSE-APACHE"],
-  "sideEffects": ["*.wasm", "./bundler/okibi.js", "./nodejs/okibi.js"],
+  "files": [
+    "bundler",
+    "nodejs",
+    "dist",
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "sideEffects": [
+    "*.wasm",
+    "./bundler/okibi.js",
+    "./nodejs/okibi.js"
+  ],
   "scripts": {
     "build": "../../scripts/build-wasm.sh --release && tsc --project tsconfig.build.json",
     "test": "vitest run",
@@ -50,6 +69,7 @@
     "prepublishOnly": "npm run build && ../../scripts/stage-licenses.sh"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260823.1",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }
