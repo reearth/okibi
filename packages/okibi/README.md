@@ -1,19 +1,56 @@
 # @reearth/okibi
 
-The projection a service needs when it writes `tile.qk`: the
-[okibi planner's own](../../crates/okibi-qk), compiled to wasm rather than
-reimplemented in TypeScript.
+Everything a service needs from [okibi](../..): the one call it makes per tile
+request, the projection that call needs, and the aggregation it runs if it
+takes its own digest.
 
-There is no TypeScript in this directory and there is not meant to be. The
-source is [`crates/okibi-wasm`](../../crates/okibi-wasm); what is committed
-here is the packaging — the export map, the licences, and the tests that run
-the built package the way a service will. `bundler/` and `nodejs/` appear when
-you build, and are not committed, because a committed build product is one
-that can be stale while looking authoritative.
+There is no TypeScript in `bundler/` or `nodejs/` and there is not meant to
+be. They are built from [`crates/okibi-wasm`](../../crates/okibi-wasm) and are
+not committed, because a committed build product is one that can be stale
+while looking authoritative. `writer/` is ordinary TypeScript and is.
 
-The arithmetic is easy to write twice and hard to notice being subtly wrong.
-A tile projected into the wrong cell is invisible — the events keep arriving,
-the digest keeps aggregating — until a plan warms the wrong part of the world.
+## Writing events
+
+```ts
+import { createWriter, originOf } from "@reearth/okibi/writer";
+import { quadkeyForTile } from "@reearth/okibi";
+
+import epochs from "../okibi.epochs.json";
+
+const writer = createWriter({ dataset: env.TILE_DEMAND, epochs });
+
+writer.write({
+  tileset: "style-aoi-04",
+  kind: "content",
+  id: "14/14552/6451",
+  qk: quadkeyForTile("web-mercator", 14, 14552, 6451),
+  cacheStatus: "miss",
+  fmt: "png",
+  origin: originOf(request, env.OKIBI_WARM_SECRET),
+  genMs: 34120,
+  bytes: 88231,
+  z: 14,
+});
+```
+
+`/writer` is a separate entry point because it is plain TypeScript with no
+dependencies: a service that gets `tile.qk` some other way imports it without
+pulling in the wasm.
+
+**The epochs come from the file the cache keys come from.** `tile.epoch.*` has
+to be byte-identical to the strings in the cache key, and the only way to hold
+that is for there to be one string rather than two that agree today.
+`cacheKeyFor(epochs, tileset)` is here for the other half of it.
+
+**The column order lives in one place.** Three services packing thirteen blobs
+by hand is three chances to shift one by a position and produce a ledger that
+looks fine and means something different.
+
+**`write` never throws.** It runs as the response goes out, and no tile
+response is worth losing over bookkeeping; a refused event goes to `onError`.
+The pure `toDataPoint` does throw, which is what tests hold.
+
+## Projection
 
 ```ts
 import { qk8, quadkeyForTile } from "@reearth/okibi";
@@ -25,15 +62,17 @@ qk8(qk); // "13300211" — the cell a demand digest aggregates into
 
 Schemes: `web-mercator`, `web-mercator-tms`, `geographic`, `geographic-tms`.
 A tile's centre point is what crosses between them, because the same
-coordinates mean different ground in each.
+coordinates mean different ground in each. Also here: `quadkeyForTileAt` for a
+level other than the tile's own, `quadkeyForPoint`, and `startsWith` for
+matching an invalidation scope.
 
-Also here: `quadkeyForTileAt` for a level other than the tile's own,
-`quadkeyForPoint`, and `startsWith` for matching an invalidation scope.
+This is [the planner's own projection](../../crates/okibi-qk) rather than a
+second implementation. The arithmetic is easy to write twice and hard to
+notice being subtly wrong: a tile projected into the wrong cell is invisible —
+the events keep arriving, the digest keeps aggregating — until a plan warms
+the wrong part of the world.
 
-## The digest
-
-The same aggregation `okibi digest` runs, for a service that would rather take
-its own digest from a Worker cron than from a scheduled CI job:
+## Taking a digest
 
 ```ts
 import { assembleDigest, digestQueries } from "@reearth/okibi";
@@ -42,12 +81,11 @@ const { cells, topTiles } = digestQueries({ services: ["papers"] }, "2026-08-23"
 const { records, skipped } = assembleDigest(cellRows, tileRows, "2026-08-23", 20);
 ```
 
-It is here rather than rewritten in TypeScript for the same reason the
-projection is. Which cell an unplaced request belongs to, how a tie between
-two equally hot tiles breaks, what happens to a row that cannot be placed —
-none of those fail loudly when two implementations disagree, and a digest that
-means something slightly different is a plan that warms somewhere slightly
-wrong.
+The same aggregation `okibi digest` runs, for a service that would rather take
+its own from a Worker cron than from a scheduled CI job. Here for the same
+reason the projection is: which cell an unplaced request belongs to, how a tie
+between two equally hot tiles breaks, what happens to a row that cannot be
+placed — none of those fail loudly when two implementations disagree.
 
 Two rules of the [binding](../../spec/bindings/wae-1.md) live in the query text
 for the same reason: every frequency carries `_sample_interval`, and demand
@@ -55,16 +93,14 @@ counts organic requests only.
 [`examples/okibi-digest-cron.ts`](../../examples/okibi-digest-cron.ts) is the
 rest of what a Worker needs, which is an HTTP call and a bucket write.
 
-Planning is not in this package yet. When it is, it arrives as more exports
-from the same place.
+Planning is not here yet. When it is, it arrives as more exports from the same
+place.
 
 ## Building
 
-`pkg` is built, not committed:
-
 ```sh
-pnpm build   # or scripts/build-wasm.sh from the repository root
+pnpm build   # wasm-pack for both targets, then tsc for the writer
 ```
 
-Two targets ship. `bundler` is what wrangler bundles into a Worker; `nodejs`
+Two wasm targets ship: `bundler` is what wrangler puts in a Worker, `nodejs`
 is what a test can import directly. The export map picks between them.

@@ -7,6 +7,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-for package in packages/okibi packages/okibi-writer; do
+for package in packages/okibi; do
   cp LICENSE-MIT LICENSE-APACHE "$package/"
 done

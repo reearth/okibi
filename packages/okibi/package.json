@@ -1,7 +1,7 @@
 {
   "name": "@reearth/okibi",
   "version": "0.1.0",
-  "description": "The okibi planner's own quadkey projection, for services writing tile-demand events",
+  "description": "Tile-demand events, quadkey projection and demand digests, for services okibi warms",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
@@ -9,7 +9,7 @@
     "directory": "packages/okibi"
   },
   "homepage": "https://github.com/reearth/okibi",
-  "keywords": ["tiles", "quadkey", "cache", "wasm", "webassembly", "cloudflare-workers"],
+  "keywords": ["tiles", "quadkey", "cache", "cache-warming", "wasm", "cloudflare-workers", "analytics-engine"],
   "type": "module",
   "packageManager": "npm@11.15.0",
   "exports": {
@@ -27,6 +27,10 @@
         "default": "./bundler/okibi.js"
       }
     },
+    "./writer": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
     "./bundler": {
       "types": "./bundler/okibi.d.ts",
       "default": "./bundler/okibi.js"
@@ -37,14 +41,16 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["bundler", "nodejs", "README.md", "LICENSE-MIT", "LICENSE-APACHE"],
+  "files": ["bundler", "nodejs", "dist", "README.md", "LICENSE-MIT", "LICENSE-APACHE"],
   "sideEffects": ["*.wasm", "./bundler/okibi.js", "./nodejs/okibi.js"],
   "scripts": {
-    "build": "../../scripts/build-wasm.sh --release",
+    "build": "../../scripts/build-wasm.sh --release && tsc --project tsconfig.build.json",
     "test": "vitest run",
-    "prepublishOnly": "../../scripts/build-wasm.sh --release && ../../scripts/stage-licenses.sh"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && ../../scripts/stage-licenses.sh"
   },
   "devDependencies": {
+    "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }
 }

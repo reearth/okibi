@@ -10,12 +10,6 @@ importers:
 
   packages/okibi:
     devDependencies:
-      vitest:
-        specifier: ^3.0.0
-        version: 3.2.7
-
-  packages/okibi-writer:
-    devDependencies:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

@@ -78,7 +78,7 @@ env.TILE_DEMAND.writeDataPoint({
 ```
 
 Services should not write this themselves.
-[`@reearth/okibi-writer`](../../packages/okibi-writer) packs the columns, so
+[`@reearth/okibi/writer`](../../packages/okibi) packs the columns, so
 that the ordering above exists in one place rather than three.
 
 ## What adopting this binding obliges you to

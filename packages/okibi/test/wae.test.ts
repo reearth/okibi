@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { NotWritable, check, qk8, toDataPoint } from "../src/wae.js";
-import type { TileDemandEvent } from "../src/types.js";
+import { NotWritable, check, qk8, toDataPoint } from "../writer/wae.js";
+import type { TileDemandEvent } from "../writer/types.js";
 
 const papers: TileDemandEvent = {
   service: "papers",

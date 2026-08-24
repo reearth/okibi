@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { UnknownTileset, cacheKeyFor, epochFor } from "../src/epochs.js";
-import type { EpochsFile } from "../src/epochs.js";
-import { WARM_HEADER, originOf, warmHeaders } from "../src/origin.js";
-import type { TileDemand } from "../src/types.js";
-import type { DataPoint } from "../src/wae.js";
-import { createWriter } from "../src/writer.js";
+import { UnknownTileset, cacheKeyFor, epochFor } from "../writer/epochs.js";
+import type { EpochsFile } from "../writer/epochs.js";
+import { WARM_HEADER, originOf, warmHeaders } from "../writer/origin.js";
+import type { TileDemand } from "../writer/types.js";
+import type { DataPoint } from "../writer/wae.js";
+import { createWriter } from "../writer/writer.js";
 
 const epochs: EpochsFile = {
   service: "papers",

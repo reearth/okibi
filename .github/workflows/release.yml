@@ -14,18 +14,11 @@ concurrency:
 
 jobs:
   publish-npm:
-    name: Publish ${{ matrix.package }}
+    name: Publish @reearth/okibi
     runs-on: ubuntu-latest
-    strategy:
-      # One at a time. Two npm publishes racing for the same OIDC exchange is
-      # a failure mode nobody needs to debug on a release.
-      max-parallel: 1
-      matrix:
-        include:
-          - package: "@reearth/okibi"
-            directory: packages/okibi
-          - package: "@reearth/okibi-writer"
-            directory: packages/okibi-writer
+    defaults:
+      run:
+        working-directory: packages/okibi
 
     # `npm` is a deployment environment with required reviewers and a `v*` tag
     # policy. Authentication is npm Trusted Publishing: the workflow's OIDC
@@ -36,7 +29,7 @@ jobs:
     # publish once by hand and let CI take over from the next tag.
     environment:
       name: npm
-      url: https://www.npmjs.com/package/${{ matrix.package }}
+      url: https://www.npmjs.com/package/@reearth/okibi
     permissions:
       contents: read
       id-token: write # Trusted Publishing, and the provenance attestation
@@ -60,7 +53,6 @@ jobs:
       # bundled with node 22. The version is pinned in each package.json so
       # that a local `npm publish` and this one do the same thing.
       - name: Activate the pinned npm
-        working-directory: ${{ matrix.directory }}
         run: |
           corepack enable npm
           npm --version
@@ -69,19 +61,16 @@ jobs:
       # CLI is pinned to the version the lockfile resolved rather than to
       # whatever crates.io published this week.
       - name: Install wasm-pack
-        if: matrix.package == '@reearth/okibi'
         uses: taiki-e/install-action@v2
         with:
           tool: wasm-pack
 
       - name: Take the version from the tag
-        working-directory: ${{ matrix.directory }}
         run: |
           version="${GITHUB_REF_NAME#v}"
           npm version "$version" --no-git-tag-version --allow-same-version
 
       - name: Publish
-        working-directory: ${{ matrix.directory }}
         run: |
           set -euo pipefail
 

@@ -58,8 +58,7 @@ free — cache economics become something a reviewer can see.
 | [`crates/okibi-core`](crates/okibi-core) | the planner and the documents it reads |
 | [`crates/okibi-qk`](crates/okibi-qk) | the projection that makes unlike tile schemes comparable |
 | [`crates/okibi-cli`](crates/okibi-cli) | `digest`, `plan`, `warm`, `invalidation`, `report`, `diff`, `explain` |
-| [`packages/okibi`](packages/okibi) | the projection and the digest as wasm, for services |
-| [`packages/okibi-writer`](packages/okibi-writer) | the one call a service makes per tile request |
+| [`packages/okibi`](packages/okibi) | what a service imports: the writer, the projection, the digest |
 | [`workers/executor`](workers/executor) | drains a plan from a queue, for warming that outlasts a CI job |
 | [`actions/`](actions) | `digest` daily, `plan` on a pull request, `warm` after a deploy, `watch` for what no deploy caused |
 
@@ -94,7 +93,7 @@ byte-identical to the key it was cached under.
 that regenerates a tile, what the origin will tolerate, and what a generation
 costs.
 
-Then [`@reearth/okibi-writer`](packages/okibi-writer) writes one event per tile
+Then [`@reearth/okibi/writer`](packages/okibi) writes one event per tile
 request. Everything after that happens outside the service —
 [`examples/service-workflow.yml`](examples/service-workflow.yml) is the whole
 of it.
