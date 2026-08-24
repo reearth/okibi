@@ -44,10 +44,20 @@ jobs:
         with:
           key: wasm32
 
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+
+      # prepublishOnly builds, and the build runs tsc. Publishing is npm's job
+      # but installing is not — the lockfile is pnpm's, and a second resolution
+      # here could ship a tarball built against different typescript than every
+      # test in CI ran against.
+      - name: Install
+        working-directory: .
+        run: pnpm install --frozen-lockfile
 
       # Trusted Publishing needs npm >= 11.5.1, which is newer than the one
       # bundled with node 22. The version is pinned in each package.json so
