@@ -5,6 +5,18 @@ One file per profile per month, matching
 A plan records the hash of the table it used, so an estimate from last year can
 still be recomputed and checked.
 
+## What a profile names
+
+A profile is a billing context, not a product. `cloudflare` prices `cpu_ms`
+and `subrequest`, which are Workers, alongside `storage_class_a` and
+`egress_byte`, which are R2 — because one generation spends all four, and a
+manifest carries one `pricing_profile` for the service that does the spending.
+Naming it after any single product would be narrower than what the file holds.
+
+What a profile does have to distinguish is anything that changes the prices:
+a different vendor, a different account tier, a different region. Split it when
+one of those differs, not when a product does.
+
 **These files are append-only.** A price change is a new file for a new month.
 Editing an old one silently changes what every estimate that cites it meant,
 and the hash in those plans then matches nothing.

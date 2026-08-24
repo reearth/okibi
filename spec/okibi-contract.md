@@ -59,9 +59,9 @@ a manifest that carried them would silently change the meaning of old
 estimates. `egress_bytes_per_gen: null` means "use the digest's `avg_bytes`".
 
 `depends_on` with `order: "before"` puts the dependency's tiles for the same
-space ahead of the dependent's, so that Buildings warms after the Terrain
-elevations it will ask for — which lowers the Buildings generation it is about
-to pay for.
+space ahead of the dependent's: a service warms after whatever it will call
+while generating, so that those calls are hits rather than the generation it
+was about to pay for.
 
 `zoom_semantics` is `"resolution"` or `"size_bucket"`, and it decides whether
 the ancestor optimisation applies. Under `size_bucket` a shallower zoom is not

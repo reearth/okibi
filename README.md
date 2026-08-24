@@ -50,11 +50,29 @@ storage and the latency users would have eaten without it are all already
 computed. Put that on a pull request and changing one epoch string stops being
 free — cache economics become something a reviewer can see.
 
+## What's here
+
+| | |
+|---|---|
+| [`spec/`](spec/README.md) | ①②③, and the planner's algorithm, with the JSON Schemas that are enforced |
+| [`crates/okibi-core`](crates/okibi-core) | the planner and the documents it reads |
+| [`crates/okibi-qk`](crates/okibi-qk) | the projection that makes unlike tile schemes comparable |
+| [`crates/okibi-cli`](crates/okibi-cli) | `digest`, `plan`, `warm`, `invalidation`, `report`, `diff`, `explain` |
+| [`packages/okibi`](packages/okibi) | the projection as wasm, for services |
+| [`packages/okibi-writer`](packages/okibi-writer) | the one call a service makes per tile request |
+| [`workers/executor`](workers/executor) | drains a plan from a queue, for warming that outlasts a CI job |
+| [`actions/`](actions) | `plan` on a pull request, `warm` after a deploy |
+
+Warming is hours of waiting on IO. A Worker bills CPU time, so waiting there
+costs almost nothing; a CI job is a rented machine sitting idle, and stops at
+six hours either way. That is what the executor is for, and why a plan goes to
+it whenever there is one.
+
 ## Status
 
 All four pieces exist and run: the [specifications](spec/README.md), the
-writer a service calls, the planner, and the actions that put a plan on a pull
-request and then fetch it.
+writer a service calls, the planner, the executor, and the actions that put a
+plan on a pull request and then fetch it.
 
 What has not happened is any of it meeting real data. No service writes
 tile-demand events yet, so no digest has ever been taken from a live dataset —

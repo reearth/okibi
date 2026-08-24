@@ -28,10 +28,11 @@ Only the intersection is considered. Demand outside the invalidation's scope
 is still warm and needs nothing; invalidated space with no observed demand has
 nobody waiting on it.
 
-The cost factor is what lets one formula serve three services with generation
-times three orders of magnitude apart. Papers, at tens of seconds a tile, pays
-for itself on cells nobody would call hot; Terrain, at 2.4 seconds, does not.
-Nothing selects a threshold per service — the threshold moves on its own.
+The cost factor is what lets one formula serve services with generation times
+three orders of magnitude apart. A service that takes tens of seconds a tile
+pays for itself on cells nobody would call hot; one that takes two and a half
+seconds does not. Nothing selects a threshold per service — the threshold
+moves on its own.
 
 ## Expansion and ordering
 
@@ -45,9 +46,9 @@ every client, before any tile is even requested.
 the same invalidation scope are added, shallower zooms first. An ancestor
 rescues more requests per tile than any of its descendants.
 
-Under `size_bucket` — Buildings — this is skipped entirely and only measured
-frequency counts. A shallower bucket there is a differently-sized tile of the
-same ground, so warming it saves nothing that the deeper one would have.
+Under `size_bucket` this is skipped entirely and only measured frequency
+counts. A shallower bucket is a differently-sized tile of the same ground, so
+warming it saves nothing that the deeper one would have.
 
 **Cells become tiles.** Where `top_qk` exists, the cell's priority expands
 onto the named tiles. Where it does not, the entries are the tiles the digest

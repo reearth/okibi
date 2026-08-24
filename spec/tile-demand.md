@@ -13,7 +13,7 @@ Examples: [`examples/`](examples/).
 
 | Attribute | Type | Required | Meaning |
 |---|---|---|---|
-| `tile.service` | string | ✔ | Which service. `terrain`, `buildings`, `papers`. A new one is registered by revising this page |
+| `tile.service` | string | ✔ | Which service. The set in use is the operator's; what this requires is that the same service is the same string in every event, digest and plan |
 | `tile.tileset` | string | ✔ | Which tileset within that service, e.g. `cesium-mesh/ellipsoid`, `plateau-tokyo23` |
 | `tile.kind` | string | ✔ | `content`, `tileset`, `subtree` or `meta`. Anything with no tile coordinates — `tileset.json`, `layer.json`, a subtree file — is not `content` |
 | `tile.id` | string | ✔ | The **native** tile identifier. Combined with the manifest's URL template it must reconstruct the original URL exactly. For `kind != content`, the request path or something equivalent to it |
@@ -28,23 +28,23 @@ Examples: [`examples/`](examples/).
 | `tile.origin` | string | ✔ | `organic` or `warm`. A request okibi itself made is `warm` |
 | `tile.count` | number | ✔ | Always `1`. It exists so the reader can restore sampling weight |
 | `tile.gen_ms` | number | ✔ | Milliseconds spent generating. `0` on a hit |
-| `tile.gen_dep_ms` | number | — | The part of `gen_ms` spent calling another service, e.g. Buildings asking Terrain for elevation |
+| `tile.gen_dep_ms` | number | — | The part of `gen_ms` spent calling another service, e.g. a building-mesh service asking a terrain service for ground height |
 | `tile.bytes` | number | ✔ | Response body size in bytes |
 | `tile.z` | number | when `content` | The native zoom level. **Only comparable within one service** |
 
 Two of these carry a caveat worth stating twice.
 
-`tile.qk` is what makes the services comparable at all. Terrain is
-TMS-Geographic, Buildings is 3D Tiles, Papers is Web Mercator; their tile
-coordinates mean different things and cannot be aggregated together. A centre
-point projected into one quadkey space can. Projecting is the service's job,
+`tile.qk` is what makes services comparable at all. One may tile a geographic
+grid, another Web Mercator, a third a 3D Tiles subdivision; the same
+coordinates mean different ground in each, so they cannot be aggregated
+together. A centre point projected into one quadkey space can. Projecting is the service's job,
 though it need not write the projection itself — [`okibi-qk`](../crates/okibi-qk)
 exists to be used here.
 
 `tile.z` is *not* comparable across services, and no aggregate should treat it
-as though it were. Buildings uses zoom as a size bucket, so its `z=13` is a
-statement about how much geometry is in a tile, not about how large the tile
-is on the ground. This is why the planner's ancestor optimisation is opt-in
+as though it were. A service may use zoom as a size bucket, in which case its
+`z=13` is a statement about how much geometry is in a tile rather than about
+how large the tile is on the ground. This is why the planner's ancestor optimisation is opt-in
 per service rather than universal — see [the planner](planner.md).
 
 ## Rules for writing
