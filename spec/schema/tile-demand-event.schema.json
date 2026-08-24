@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/reearth/okibi/spec/schema/tile-demand-event.schema.json",
+  "title": "tile-demand event",
+  "description": "One event per tile request. See spec/tile-demand.md; a binding decides where these land.",
+  "type": "object",
+  "properties": {
+    "tile.service": { "type": "string", "minLength": 1 },
+    "tile.tileset": { "type": "string", "minLength": 1 },
+    "tile.kind": { "enum": ["content", "tileset", "subtree", "meta"] },
+    "tile.id": { "type": "string", "minLength": 1 },
+    "tile.qk": { "type": "string", "pattern": "^[0-3]*$" },
+    "tile.qk8": { "type": "string", "pattern": "^[0-3]{0,8}$" },
+    "tile.cache.status": { "enum": ["hit", "miss", "swr", "error"] },
+    "tile.epoch.source": { "type": "string", "minLength": 1 },
+    "tile.epoch.algo": { "type": "string", "minLength": 1 },
+    "tile.epoch.param": { "type": "string", "minLength": 1 },
+    "tile.fmt": { "type": "string", "minLength": 1 },
+    "tile.colo": { "type": "string" },
+    "tile.origin": { "enum": ["organic", "warm"] },
+    "tile.count": { "const": 1 },
+    "tile.gen_ms": { "type": "number", "minimum": 0 },
+    "tile.gen_dep_ms": { "type": "number", "minimum": 0 },
+    "tile.bytes": { "type": "number", "minimum": 0 },
+    "tile.z": { "type": "number" }
+  },
+  "required": [
+    "tile.service",
+    "tile.tileset",
+    "tile.kind",
+    "tile.id",
+    "tile.cache.status",
+    "tile.epoch.source",
+    "tile.epoch.algo",
+    "tile.epoch.param",
+    "tile.fmt",
+    "tile.origin",
+    "tile.count",
+    "tile.gen_ms",
+    "tile.bytes"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "$comment": "A content request has coordinates, so the spatial keys and the zoom are not optional there.",
+      "if": {
+        "properties": { "tile.kind": { "const": "content" } },
+        "required": ["tile.kind"]
+      },
+      "then": {
+        "required": ["tile.qk", "tile.qk8", "tile.z"],
+        "properties": {
+          "tile.qk": { "minLength": 1 },
+          "tile.qk8": { "minLength": 1 }
+        }
+      }
+    },
+    {
+      "$comment": "A hit generated nothing, so it cannot have spent time generating.",
+      "if": {
+        "properties": { "tile.cache.status": { "const": "hit" } },
+        "required": ["tile.cache.status"]
+      },
+      "then": { "properties": { "tile.gen_ms": { "const": 0 } } }
+    }
+  ]
+}

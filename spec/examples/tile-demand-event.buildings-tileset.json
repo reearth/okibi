@@ -1,0 +1,15 @@
+{
+  "tile.service": "buildings",
+  "tile.tileset": "overture-global",
+  "tile.kind": "tileset",
+  "tile.id": "tileset.json",
+  "tile.cache.status": "hit",
+  "tile.epoch.source": "overture-2026-07",
+  "tile.epoch.algo": "bldg-1.4.0",
+  "tile.epoch.param": "lod-default",
+  "tile.fmt": "json",
+  "tile.origin": "organic",
+  "tile.count": 1,
+  "tile.gen_ms": 0,
+  "tile.bytes": 18220
+}

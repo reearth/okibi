@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/reearth/okibi/spec/schema/demand-digest.schema.json",
+  "title": "demand digest record",
+  "description": "One aggregated cell. See spec/demand-digest.md. A digest file is one of these per line.",
+  "type": "object",
+  "properties": {
+    "digest": { "const": "tile-demand-digest/1" },
+    "service": { "type": "string", "minLength": 1 },
+    "tileset": { "type": "string", "minLength": 1 },
+    "kind": { "enum": ["content", "tileset", "subtree", "meta"] },
+    "qk8": {
+      "description": "Eight quadkey characters, or \"-\" for records with no coordinates.",
+      "type": "string",
+      "pattern": "^([0-3]{1,8}|-)$"
+    },
+    "window": {
+      "description": "An ISO 8601 interval, e.g. 2026-08-23/P1D.",
+      "type": "string",
+      "minLength": 1
+    },
+    "req": {
+      "description": "Sampling weight restored, organic only.",
+      "type": "number",
+      "minimum": 0
+    },
+    "miss": { "type": "number", "minimum": 0 },
+    "p50_gen_ms": { "type": "number", "minimum": 0 },
+    "p95_gen_ms": { "type": "number", "minimum": 0 },
+    "sum_gen_ms": { "type": "number", "minimum": 0 },
+    "avg_bytes": { "type": "number", "minimum": 0 },
+    "bytes": { "type": "number", "minimum": 0 },
+    "tiles_observed": { "type": "integer", "minimum": 0 },
+    "top_qk": {
+      "description": "The cell's top tiles as [qk, req] pairs.",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          { "type": "string", "pattern": "^[0-3]+$" },
+          { "type": "number", "minimum": 0 }
+        ],
+        "items": false,
+        "minItems": 2
+      }
+    },
+    "top_id": {
+      "description": "The same, keyed by native tile id, for records with no coordinates.",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          { "type": "string", "minLength": 1 },
+          { "type": "number", "minimum": 0 }
+        ],
+        "items": false,
+        "minItems": 2
+      }
+    }
+  },
+  "required": [
+    "digest",
+    "service",
+    "tileset",
+    "kind",
+    "qk8",
+    "window",
+    "req",
+    "miss",
+    "tiles_observed"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "$comment": "Records with no coordinates cannot be placed in a cell, and list their top tiles by id.",
+      "if": {
+        "properties": { "kind": { "const": "content" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": { "qk8": { "pattern": "^[0-3]{1,8}$" } },
+        "not": { "required": ["top_id"] }
+      },
+      "else": {
+        "properties": { "qk8": { "const": "-" } },
+        "not": { "required": ["top_qk"] }
+      }
+    }
+  ]
+}

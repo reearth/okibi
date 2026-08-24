@@ -1,0 +1,20 @@
+{
+  "digest": "tile-demand-digest/1",
+  "service": "papers",
+  "tileset": "style-aoi-04",
+  "kind": "content",
+  "qk8": "13300211",
+  "window": "2026-08-23/P1D",
+  "req": 48210,
+  "miss": 312,
+  "p50_gen_ms": 28900,
+  "p95_gen_ms": 41200,
+  "sum_gen_ms": 9016800,
+  "avg_bytes": 88231,
+  "bytes": 4200000000,
+  "tiles_observed": 1240,
+  "top_qk": [
+    ["13300211231021", 1820],
+    ["13300211231023", 1544]
+  ]
+}

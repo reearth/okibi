@@ -52,9 +52,9 @@ free — cache economics become something a reviewer can see.
 
 ## Status
 
-Scaffolding only. The specifications are drafted in `tmp/IDEA.md` and have not
-been split into `spec/` yet; no crate has an implementation; nothing is
-published anywhere.
+The [specifications](spec/README.md) are drafted and their schemas are checked
+in CI. Nothing is implemented behind them yet: no crate does anything, and
+nothing is published anywhere.
 
 ## License
 

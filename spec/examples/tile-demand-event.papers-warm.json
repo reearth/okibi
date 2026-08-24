@@ -1,0 +1,18 @@
+{
+  "tile.service": "papers",
+  "tile.tileset": "style-aoi-04",
+  "tile.kind": "content",
+  "tile.id": "14/14552/6451",
+  "tile.qk": "13300211231021",
+  "tile.qk8": "13300211",
+  "tile.cache.status": "miss",
+  "tile.epoch.source": "osm-2026-08-18",
+  "tile.epoch.algo": "ezu-0.7.1",
+  "tile.epoch.param": "style-aoi-04@r12",
+  "tile.fmt": "png",
+  "tile.origin": "warm",
+  "tile.count": 1,
+  "tile.gen_ms": 34120,
+  "tile.bytes": 88231,
+  "tile.z": 14
+}

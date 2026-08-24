@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/reearth/okibi/spec/schema/warm-plan.schema.json",
+  "title": "warm plan",
+  "description": "What to fetch, in what order, at what cost. See spec/okibi-contract.md and spec/planner.md.",
+  "type": "object",
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  },
+  "properties": {
+    "plan": { "const": "okibi-warm-plan/1" },
+    "derived_from": {
+      "description": "Which inputs produced this plan. The plan is a derived artifact; these are the originals.",
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "invalidation": { "$ref": "#/$defs/hash" },
+        "manifests": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/hash" }
+        }
+      },
+      "required": ["digest", "invalidation", "manifests"],
+      "additionalProperties": false
+    },
+    "entries": {
+      "description": "Ordered. An executor takes them from the top.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "minLength": 1 },
+          "service": { "type": "string", "minLength": 1 },
+          "priority": { "type": "number", "minimum": 0, "maximum": 1 },
+          "lane": { "enum": ["warm", "urgent"] },
+          "not_before": { "type": ["string", "null"], "format": "date-time" },
+          "expected_gen_ms": { "type": "number", "minimum": 0 },
+          "saved_req_estimate": { "type": "number", "minimum": 0 }
+        },
+        "required": ["url", "service", "priority", "lane", "expected_gen_ms"],
+        "additionalProperties": false
+      }
+    },
+    "stats": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "sum_expected_gen_ms": { "type": "number", "minimum": 0 },
+        "coverage_of_demand": {
+          "description": "Below 1 when the deadline or a budget cut the plan short.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": ["total", "sum_expected_gen_ms", "coverage_of_demand"],
+      "additionalProperties": false
+    },
+    "estimate": {
+      "type": "object",
+      "properties": {
+        "pricing": {
+          "description": "The pricing table used, by path and hash, so the estimate stays recomputable.",
+          "type": "string",
+          "pattern": "^.+@sha256:[0-9a-f]{64}$"
+        },
+        "warm": {
+          "type": "object",
+          "properties": {
+            "tiles": { "type": "integer", "minimum": 0 },
+            "wall_clock_s": { "type": "number", "minimum": 0 },
+            "cpu_ms": { "type": "number", "minimum": 0 },
+            "usd": { "type": "number", "minimum": 0 },
+            "storage_delta_bytes": { "type": "number" }
+          },
+          "required": ["tiles", "wall_clock_s", "usd"],
+          "additionalProperties": false
+        },
+        "no_warm": {
+          "description": "The other side of the comparison: what interactive traffic pays instead.",
+          "type": "object",
+          "properties": {
+            "affected_first_requests": { "type": "number", "minimum": 0 },
+            "user_wait_ms_total": { "type": "number", "minimum": 0 },
+            "p95_first_byte_ms": { "type": "number", "minimum": 0 }
+          },
+          "required": ["affected_first_requests", "user_wait_ms_total"],
+          "additionalProperties": false
+        },
+        "reclaimable": {
+          "type": "object",
+          "properties": {
+            "prev_epoch_bytes": { "type": "number", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "marginal": {
+          "description": "The cumulative curve, which is where the decision of where to stop is actually made.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+              "tiles": { "type": "integer", "minimum": 0 },
+              "usd": { "type": "number", "minimum": 0 },
+              "wall_clock_s": { "type": "number", "minimum": 0 }
+            },
+            "required": ["coverage", "tiles", "usd", "wall_clock_s"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["pricing", "warm", "no_warm"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["plan", "derived_from", "entries", "stats", "estimate"],
+  "additionalProperties": false
+}

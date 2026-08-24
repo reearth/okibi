@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/reearth/okibi/spec/schema/invalidation-event.schema.json",
+  "title": "invalidation event",
+  "description": "What died, normalised. See spec/okibi-contract.md.",
+  "type": "object",
+  "properties": {
+    "event": { "const": "okibi-invalidation/1" },
+    "service": { "type": "string", "minLength": 1 },
+    "tileset": { "type": "string", "minLength": 1 },
+    "axis": { "enum": ["source", "algo", "param"] },
+    "epoch_from": { "type": "string", "minLength": 1 },
+    "epoch_to": { "type": "string", "minLength": 1 },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": { "type": { "const": "all" } },
+          "required": ["type"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "qk_prefixes" },
+            "prefixes": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[0-3]+$" },
+              "minItems": 1
+            }
+          },
+          "required": ["type", "prefixes"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "ids" },
+            "ids": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            }
+          },
+          "required": ["type", "ids"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "deadline": {
+      "description": "An input, not a clock the planner reads.",
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "event",
+    "service",
+    "tileset",
+    "axis",
+    "epoch_from",
+    "epoch_to",
+    "scope",
+    "occurred_at"
+  ],
+  "additionalProperties": false
+}

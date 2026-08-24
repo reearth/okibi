@@ -1,0 +1,59 @@
+{
+  "plan": "okibi-warm-plan/1",
+  "derived_from": {
+    "digest": ["r2://okibi/digests/2026-08-23.jsonl"],
+    "invalidation": "sha256:7909cdbbde71ef321b9c72d23e8ad615d07ce851e1bdf27645fad17a878ec899",
+    "manifests": {
+      "papers": "sha256:3d26f9a61aae5d0bedfebe48035d47ff22ecffcc8929284dbc71cc6d47db6600"
+    }
+  },
+  "entries": [
+    {
+      "url": "https://papers.reearth.land/t/style-aoi-04/meta.json",
+      "service": "papers",
+      "priority": 1.0,
+      "lane": "warm",
+      "not_before": null,
+      "expected_gen_ms": 120,
+      "saved_req_estimate": 9120
+    },
+    {
+      "url": "https://papers.reearth.land/t/style-aoi-04/14/14552/6451?e=style-aoi-04@r13",
+      "service": "papers",
+      "priority": 0.982,
+      "lane": "warm",
+      "not_before": null,
+      "expected_gen_ms": 34120,
+      "saved_req_estimate": 1820
+    }
+  ],
+  "stats": {
+    "total": 2,
+    "sum_expected_gen_ms": 34240,
+    "coverage_of_demand": 0.93
+  },
+  "estimate": {
+    "pricing": "pricing/cloudflare-2026-08.json@sha256:6893288bfb4616fd529f9319cde61d274191c1d6df5870d6d9188751920f0ad4",
+    "warm": {
+      "tiles": 2,
+      "wall_clock_s": 8560,
+      "cpu_ms": 118000000,
+      "usd": 6.42,
+      "storage_delta_bytes": 420000000
+    },
+    "no_warm": {
+      "affected_first_requests": 7900,
+      "user_wait_ms_total": 240000000,
+      "p95_first_byte_ms": 34000
+    },
+    "reclaimable": {
+      "prev_epoch_bytes": 390000000
+    },
+    "marginal": [
+      { "coverage": 0.5, "tiles": 520, "usd": 1.1, "wall_clock_s": 1400 },
+      { "coverage": 0.8, "tiles": 1680, "usd": 3.2, "wall_clock_s": 4100 },
+      { "coverage": 0.9, "tiles": 3050, "usd": 5.1, "wall_clock_s": 7000 },
+      { "coverage": 0.95, "tiles": 7400, "usd": 9.8, "wall_clock_s": 16800 }
+    ]
+  }
+}

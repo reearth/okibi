@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/reearth/okibi/spec/schema/service-manifest.schema.json",
+  "title": "service manifest",
+  "description": "Everything okibi is allowed to know about a service. See spec/okibi-contract.md.",
+  "type": "object",
+  "properties": {
+    "manifest": { "const": "okibi-service/1" },
+    "service": { "type": "string", "minLength": 1 },
+    "url_template": {
+      "description": "Substituting {tileset}, {id} and {epoch.*} must reconstruct a URL that regenerates the tile.",
+      "type": "string",
+      "minLength": 1
+    },
+    "meta_urls": {
+      "description": "Keyed by tile kind, for the documents that have no coordinates.",
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "default_gen_ms": {
+          "description": "Used only for cells the digest has no measurement for.",
+          "type": "number",
+          "minimum": 0
+        },
+        "default_bytes": { "type": "number", "minimum": 0 },
+        "concurrency_limit": { "type": "integer", "minimum": 1 },
+        "rate_per_s": { "type": "number", "exclusiveMinimum": 0 },
+        "billing": {
+          "description": "Resource counts per generation. Never prices: those live in a pricing table.",
+          "type": "object",
+          "properties": {
+            "pricing_profile": { "type": "string", "minLength": 1 },
+            "cpu_ms_per_gen": { "type": "number", "minimum": 0 },
+            "subrequests_per_gen": { "type": "number", "minimum": 0 },
+            "storage_class_a_per_gen": { "type": "number", "minimum": 0 },
+            "egress_bytes_per_gen": {
+              "description": "null means the digest's avg_bytes is used instead.",
+              "type": ["number", "null"],
+              "minimum": 0
+            }
+          },
+          "required": ["pricing_profile"],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "default_gen_ms",
+        "default_bytes",
+        "concurrency_limit",
+        "rate_per_s"
+      ],
+      "additionalProperties": false
+    },
+    "lanes": {
+      "type": "object",
+      "properties": {
+        "interactive_priority": {
+          "description": "The origin keeps real misses ahead of warming.",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "service": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string" },
+          "order": { "enum": ["before"] }
+        },
+        "required": ["service", "order"],
+        "additionalProperties": false
+      }
+    },
+    "zoom_semantics": {
+      "description": "Whether a shallower zoom is a coarser view of the same ground, which decides whether ancestors are worth warming.",
+      "enum": ["resolution", "size_bucket"]
+    }
+  },
+  "required": [
+    "manifest",
+    "service",
+    "url_template",
+    "cost",
+    "zoom_semantics"
+  ],
+  "additionalProperties": false
+}

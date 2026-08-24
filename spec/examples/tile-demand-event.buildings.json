@@ -1,0 +1,19 @@
+{
+  "tile.service": "buildings",
+  "tile.tileset": "overture-global",
+  "tile.kind": "content",
+  "tile.id": "13/7276/3225.glb",
+  "tile.qk": "1330021123102",
+  "tile.qk8": "13300211",
+  "tile.cache.status": "miss",
+  "tile.epoch.source": "overture-2026-07",
+  "tile.epoch.algo": "bldg-1.4.0",
+  "tile.epoch.param": "lod-default",
+  "tile.fmt": "glb",
+  "tile.origin": "organic",
+  "tile.count": 1,
+  "tile.gen_ms": 5400,
+  "tile.gen_dep_ms": 1900,
+  "tile.bytes": 220133,
+  "tile.z": 13
+}
