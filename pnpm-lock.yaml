@@ -8,6 +8,8 @@ importers:
 
   .: {}
 
+  packages/okibi: {}
+
   packages/okibi-writer:
     devDependencies:
       typescript:

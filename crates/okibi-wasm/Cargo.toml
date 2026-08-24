@@ -1,0 +1,15 @@
+[package]
+name = "okibi-wasm"
+description = "wasm bindings for okibi, so a Worker can use the same projection the planner does"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+okibi-qk.workspace = true
+wasm-bindgen.workspace = true

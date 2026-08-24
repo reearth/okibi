@@ -1,0 +1,25 @@
+{
+  "name": "@reearth/okibi",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The planner's own projection, compiled to wasm for services to use at request time",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reearth/okibi.git",
+    "directory": "packages/okibi"
+  },
+  "type": "module",
+  "main": "./pkg/okibi.js",
+  "types": "./pkg/okibi.d.ts",
+  "exports": {
+    ".": {
+      "types": "./pkg/okibi.d.ts",
+      "default": "./pkg/okibi.js"
+    }
+  },
+  "files": ["pkg"],
+  "scripts": {
+    "build": "../../scripts/build-wasm.sh --release"
+  }
+}

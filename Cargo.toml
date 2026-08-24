@@ -4,6 +4,7 @@ members = [
   "crates/okibi-cli",
   "crates/okibi-core",
   "crates/okibi-qk",
+  "crates/okibi-wasm",
 ]
 
 [workspace.package]
@@ -16,6 +17,8 @@ version = "0.0.0"
 [workspace.dependencies]
 okibi-core = { path = "crates/okibi-core", version = "0.0.0" }
 okibi-qk = { path = "crates/okibi-qk", version = "0.0.0" }
+
+wasm-bindgen = "0.2"
 
 # Test-only, all three.
 #

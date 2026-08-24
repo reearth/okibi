@@ -516,6 +516,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "okibi-wasm"
+version = "0.0.0"
+dependencies = [
+ "okibi-qk",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

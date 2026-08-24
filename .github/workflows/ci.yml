@@ -28,6 +28,21 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
+  wasm:
+    name: wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: jetli/wasm-pack-action@v0.4.0
+
+      # Nothing on the Node side imports the built package yet, so this is
+      # what catches a binding that stopped compiling.
+      - run: ./scripts/build-wasm.sh --release
+
   node:
     name: Node
     runs-on: ubuntu-latest
