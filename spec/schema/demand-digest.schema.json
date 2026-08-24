@@ -32,16 +32,17 @@
     "bytes": { "type": "number", "minimum": 0 },
     "tiles_observed": { "type": "integer", "minimum": 0 },
     "top_qk": {
-      "description": "The cell's top tiles as [qk, req] pairs.",
+      "description": "The cell's top tiles as [qk, id, req]. The quadkey places the tile; the native id is what a URL is built from.",
       "type": "array",
       "items": {
         "type": "array",
         "prefixItems": [
           { "type": "string", "pattern": "^[0-3]+$" },
+          { "type": "string", "minLength": 1 },
           { "type": "number", "minimum": 0 }
         ],
         "items": false,
-        "minItems": 2
+        "minItems": 3
       }
     },
     "top_id": {

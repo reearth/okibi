@@ -58,20 +58,44 @@ pub struct DigestRecord {
     /// Distinct tiles seen in this cell: the denominator estimates rest on.
     pub tiles_observed: u64,
 
-    /// The cell's top tiles, as `[qk, req]`. Absent for unplaced records.
+    /// The cell's top tiles, as `[qk, id, req]`. Absent for unplaced records.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub top_qk: Vec<TopEntry>,
+    pub top_qk: Vec<TopTile>,
     /// The same by native id, for records with no coordinates.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub top_id: Vec<TopEntry>,
 }
 
-/// A tile and how often it was asked for, written as a two-element array.
+/// A placed tile and how often it was asked for: `[qk, id, req]`.
+///
+/// Both keys are here because neither implies the other and both are needed.
+/// The quadkey is what the invalidation scope is matched against and what
+/// makes an ancestor recognisable; the native id is what a URL is built from,
+/// and deriving one from the other would require knowing how the service
+/// numbers its tiles — which is exactly what okibi does not know.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TopTile(pub String, pub String, pub f64);
+
+impl TopTile {
+    pub fn qk(&self) -> &str {
+        &self.0
+    }
+
+    pub fn id(&self) -> &str {
+        &self.1
+    }
+
+    pub fn req(&self) -> f64 {
+        self.2
+    }
+}
+
+/// A document with no coordinates and how often it was asked for: `[id, req]`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TopEntry(pub String, pub f64);
 
 impl TopEntry {
-    pub fn key(&self) -> &str {
+    pub fn id(&self) -> &str {
         &self.0
     }
 

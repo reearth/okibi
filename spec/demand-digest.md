@@ -24,7 +24,8 @@ JSONL or Parquet. One record per `(service, tileset, kind, qk8, window)`.
   "p50_gen_ms": 28900, "p95_gen_ms": 41200, "sum_gen_ms": 9016800,
   "avg_bytes": 88231, "bytes": 4.2e9,
   "tiles_observed": 1240,
-  "top_qk": [ ["13300211231022", 1820], ["13300211231023", 1544] ] }
+  "top_qk": [ ["13300211231022", "14/14552/6451", 1820],
+              ["13300211231023", "14/14553/6451", 1544] ] }
 ```
 
 | Field | Meaning |
@@ -35,10 +36,18 @@ JSONL or Parquet. One record per `(service, tileset, kind, qk8, window)`.
 | `p50_gen_ms`, `p95_gen_ms`, `sum_gen_ms` | Generation time. May include `warm` requests |
 | `avg_bytes`, `bytes` | Response sizes |
 | `tiles_observed` | Distinct tiles actually seen in this cell. The denominator every estimate is built on |
-| `top_qk` | Optional. The cell's top tiles, `[qk, req]` pairs, default top 20 |
+| `top_qk` | Optional. The cell's top tiles, `[qk, id, req]`, default top 20 |
+
+A top tile carries both keys because both are needed and neither implies the
+other. The quadkey says where the tile is, which is what the invalidation
+scope is matched against and what makes an ancestor recognisable. The native
+id is what the service's URL template is filled with, and okibi has no way to
+derive one from the other — that is precisely the knowledge it does not have
+about a service.
 
 Records with `kind != content` set `qk8` to `"-"` and carry `top_id` instead
-of `top_qk`, keyed by `tile.id`. This is how a `tileset.json` — which has no
+of `top_qk`, whose entries are `[id, req]`: a document with no coordinates has
+no quadkey to carry. This is how a `tileset.json` — which has no
 coordinates and cannot be placed in a cell — still ends up in a plan.
 
 `top_qk` and `top_id` are what let a plan be finer than the digest. A digest

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use okibi_core::digest::{DigestRecord, Kind, TopEntry, UNPLACED};
+use okibi_core::digest::{DigestRecord, Kind, TopEntry, TopTile, UNPLACED};
 use serde::{Deserialize, Deserializer};
 
 use crate::window::Window;
@@ -96,6 +96,15 @@ fn cell_key(service: &str, tileset: &str, kind: &str, qk8: &str) -> CellKey {
     )
 }
 
+/// Hottest first, with the key breaking ties so that two runs over the same
+/// day produce the same list.
+fn hottest_first(a_req: f64, b_req: f64, a_key: &str, b_key: &str) -> std::cmp::Ordering {
+    b_req
+        .partial_cmp(&a_req)
+        .unwrap_or(std::cmp::Ordering::Equal)
+        .then_with(|| a_key.cmp(b_key))
+}
+
 /// Build the digest for one window.
 ///
 /// The result is ordered, because a digest is compared against the one before
@@ -108,16 +117,26 @@ pub fn assemble(
 ) -> (Vec<DigestRecord>, Skipped) {
     let mut skipped = Skipped::default();
 
-    let mut tops: BTreeMap<CellKey, Vec<TopEntry>> = BTreeMap::new();
+    // A placed tile carries both keys: the quadkey places it and the id is
+    // what a URL gets built from. An unplaced one has only the id.
+    let mut placed: BTreeMap<CellKey, Vec<TopTile>> = BTreeMap::new();
+    let mut unplaced: BTreeMap<CellKey, Vec<TopEntry>> = BTreeMap::new();
     for tile in tiles {
         let Some(kind) = parse_kind(&tile.kind) else {
             continue;
         };
         let key = cell_key(&tile.service, &tile.tileset, &tile.kind, &tile.qk8);
-        // A placed tile is named by where it is; an unplaced one has nowhere
-        // to be, so it is named by what was asked for.
-        let name = if kind.is_placed() { tile.qk } else { tile.id };
-        tops.entry(key).or_default().push(TopEntry(name, tile.req));
+        if kind.is_placed() {
+            placed
+                .entry(key)
+                .or_default()
+                .push(TopTile(tile.qk, tile.id, tile.req));
+        } else {
+            unplaced
+                .entry(key)
+                .or_default()
+                .push(TopEntry(tile.id, tile.req));
+        }
     }
 
     let mut records: BTreeMap<CellKey, DigestRecord> = BTreeMap::new();
@@ -149,21 +168,21 @@ pub fn assemble(
         record.avg_bytes = cell.avg_bytes;
         record.tiles_observed = cell.tiles_observed.max(0.0) as u64;
 
-        let mut top = tops.remove(&key).unwrap_or_default();
-        if top.is_empty() {
-            skipped.cells_without_top += 1;
-        }
-        top.sort_by(|a, b| {
-            b.req()
-                .partial_cmp(&a.req())
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.key().cmp(b.key()))
-        });
-        top.truncate(top_n);
-
         if kind.is_placed() {
+            let mut top = placed.remove(&key).unwrap_or_default();
+            if top.is_empty() {
+                skipped.cells_without_top += 1;
+            }
+            top.sort_by(|a, b| hottest_first(a.req(), b.req(), a.qk(), b.qk()));
+            top.truncate(top_n);
             record.top_qk = top;
         } else {
+            let mut top = unplaced.remove(&key).unwrap_or_default();
+            if top.is_empty() {
+                skipped.cells_without_top += 1;
+            }
+            top.sort_by(|a, b| hottest_first(a.req(), b.req(), a.id(), b.id()));
+            top.truncate(top_n);
             record.top_id = top;
         }
 
@@ -222,8 +241,9 @@ mod tests {
             20,
         );
 
-        let top: Vec<&str> = records[0].top_qk.iter().map(|t| t.key()).collect();
+        let top: Vec<&str> = records[0].top_qk.iter().map(|t| t.qk()).collect();
         assert_eq!(top, ["13300211231022", "13300211231023"]);
+        assert_eq!(records[0].top_qk[0].id(), "b");
         assert_eq!(records[0].window, "2026-08-23/P1D");
         assert_eq!(skipped, Skipped::default());
     }
@@ -260,7 +280,7 @@ mod tests {
 
         assert_eq!(records[0].qk8, "-");
         assert!(records[0].top_qk.is_empty());
-        assert_eq!(records[0].top_id[0].key(), "tileset.json");
+        assert_eq!(records[0].top_id[0].id(), "tileset.json");
     }
 
     #[test]

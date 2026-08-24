@@ -16,7 +16,7 @@ pub mod manifest;
 pub mod plan;
 pub mod pricing;
 
-pub use digest::{DigestRecord, Kind, TopEntry};
+pub use digest::{DigestRecord, Kind, TopEntry, TopTile};
 pub use invalidation::{Axis, InvalidationEvent, Scope};
 pub use manifest::{Epoch, ServiceManifest, ZoomSemantics};
 pub use plan::{Entry, Lane, WarmPlan};
