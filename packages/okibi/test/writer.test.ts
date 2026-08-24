@@ -132,3 +132,55 @@ describe("where a request came from", () => {
     expect(originOf(request({ [WARM_HEADER]: "anything" }), "")).toBe("organic");
   });
 });
+
+/// Most of a cache key is decided at build time and belongs in the file. Some
+/// services resolve part of it per request — the current upstream snapshot,
+/// say — and no file can hold that. What the specification asks is that the
+/// event match the key, not that it match a file.
+describe("epochs a file cannot hold", () => {
+  it("takes the ones the caller cached under", () => {
+    const dataset = sink();
+    createWriter({ dataset, epochs }).write({
+      ...demand,
+      epoch: {
+        source: "protomaps-2026-08-24",
+        algo: "ezu-0.9.0",
+        param: "papers-light@r5",
+      },
+    });
+
+    expect(dataset.written[0]?.blobs.slice(7, 10)).toEqual([
+      "protomaps-2026-08-24",
+      "ezu-0.9.0",
+      "papers-light@r5",
+    ]);
+  });
+
+  it("falls back to the file, which is the usual case", () => {
+    const dataset = sink();
+    createWriter({ dataset, epochs }).write(demand);
+
+    expect(dataset.written[0]?.blobs.slice(7, 10)).toEqual([
+      "osm-2026-08-18",
+      "ezu-0.7.1",
+      "style-aoi-04@r13",
+    ]);
+  });
+
+  /// A tileset the file has never heard of is fine when the caller brought
+  /// the epochs itself — which is what a service with a per-request namespace
+  /// looks like.
+  it("does not need the tileset to be in the file at all", () => {
+    const dataset = sink();
+    const onError = vi.fn();
+
+    createWriter({ dataset, epochs, onError }).write({
+      ...demand,
+      tileset: "style-aoi-99",
+      epoch: { source: "s", algo: "a", param: "p" },
+    });
+
+    expect(onError).not.toHaveBeenCalled();
+    expect(dataset.written[0]?.blobs[1]).toBe("style-aoi-99");
+  });
+});

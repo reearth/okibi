@@ -48,4 +48,19 @@ export interface TileDemandEvent {
 }
 
 /** What a service passes in: everything the writer cannot know for it. */
-export type TileDemand = Omit<TileDemandEvent, "service" | "epoch">;
+export type TileDemand = Omit<TileDemandEvent, "service" | "epoch"> & {
+  /**
+   * The epochs this tile was cached under, where they are not the ones in
+   * `okibi.epochs.json`.
+   *
+   * Most of a cache key is decided when a service is built, and reading it
+   * from the file the key is built from is what keeps the two identical. Some
+   * of it is not: a service that resolves the current upstream snapshot at
+   * request time has an epoch that no file could hold, and the requirement is
+   * that the event match the key — not that it match a file.
+   *
+   * So the caller may hand over the strings it just built the key from. What
+   * it must not do is build them a second way.
+   */
+  epoch?: Epoch;
+};

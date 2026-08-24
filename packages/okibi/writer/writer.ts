@@ -40,7 +40,11 @@ export function createWriter({
   const eventFor = (demand: TileDemand): TileDemandEvent => ({
     ...demand,
     service: epochs.service,
-    epoch: epochFor(epochs, demand.tileset),
+    // What the caller says it cached under, or what the file says. The file
+    // is the usual answer and the better one — there is only one string, so
+    // there is nothing to drift from — but a service that resolves part of
+    // its key at request time knows something the file cannot.
+    epoch: demand.epoch ?? epochFor(epochs, demand.tileset),
   });
 
   return {

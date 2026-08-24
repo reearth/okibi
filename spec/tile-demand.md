@@ -63,6 +63,13 @@ will confidently warm the wrong set. Do not maintain this by discipline:
 read both the cache key and the event from one file, `okibi.epochs.json`, so
 that drift is not expressible.
 
+Where a service resolves part of its key at request time — the current
+upstream snapshot, a pointer it follows — no file can hold that epoch, and the
+event carries what the key was actually built from. The requirement is the
+key, not the file; the file is how the rest of it is kept honest. Such a
+service reports its resolved epochs at `/okibi/epochs.json`, so that a change
+nobody deployed is still something okibi can see.
+
 **Mark warmed requests, and only okibi's.** The executor sends
 `X-Okibi-Warm: <shared secret>`; a service writes `tile.origin: "warm"` only
 when the value matches the secret it was configured with.
