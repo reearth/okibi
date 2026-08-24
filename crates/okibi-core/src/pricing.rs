@@ -19,15 +19,27 @@ pub struct PricingTable {
     /// The month these prices are for, as `YYYY-MM`.
     pub effective: String,
     pub currency: String,
+    /// Where these prices were read from.
+    ///
+    /// Required, because the failure this format is most exposed to is a
+    /// plausible number nobody can check. A table that cannot say where it
+    /// came from is a table someone remembered.
+    pub source: Vec<String>,
+    /// The day the source was read, as `YYYY-MM-DD`.
+    pub retrieved: String,
     /// The price of one of each resource a manifest counts.
     pub units: BTreeMap<String, f64>,
 }
 
-/// The resource names a manifest's `billing` counts, spelled once.
+/// The two resource names okibi itself knows, because a digest measures them.
+///
+/// Every other name is the vendor's and lives only in the two files that use
+/// it — which is what lets a service bill for something this crate has never
+/// heard of.
 pub mod unit {
+    /// Falls back to the digest's measured generation time.
     pub const CPU_MS: &str = "cpu_ms";
-    pub const SUBREQUEST: &str = "subrequest";
-    pub const STORAGE_CLASS_A: &str = "storage_class_a";
+    /// Falls back to the digest's measured response size.
     pub const EGRESS_BYTE: &str = "egress_byte";
 }
 
@@ -50,14 +62,26 @@ mod tests {
     fn table() -> PricingTable {
         serde_json::from_str(
             r#"{"pricing":"okibi-pricing/1","profile":"cloudflare","effective":"2026-08",
-                "currency":"USD","units":{"cpu_ms":0.0000000125,"subrequest":0.0000004}}"#,
+                "currency":"USD",
+                "source":["https://developers.cloudflare.com/workers/platform/pricing/"],
+                "retrieved":"2026-08-25",
+                "units":{"cpu_ms":0.00000002}}"#,
         )
         .unwrap()
     }
 
     #[test]
     fn prices_what_it_knows_and_zero_for_the_rest() {
-        assert_eq!(table().unit(unit::CPU_MS), 0.0000000125);
+        assert_eq!(table().unit(unit::CPU_MS), 0.00000002);
         assert_eq!(table().unit(unit::EGRESS_BYTE), 0.0);
+    }
+
+    /// A table that cannot say where its numbers came from is a table someone
+    /// remembered, and this format's whole job is to be checkable years later.
+    #[test]
+    fn refuses_a_table_with_no_source() {
+        let sourceless = r#"{"pricing":"okibi-pricing/1","profile":"cloudflare",
+            "effective":"2026-08","currency":"USD","units":{"cpu_ms":0.00000002}}"#;
+        assert!(serde_json::from_str::<PricingTable>(sourceless).is_err());
     }
 }

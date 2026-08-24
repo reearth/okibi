@@ -32,8 +32,7 @@ if it is not in here or in a digest, the planner cannot act on it.
       "pricing_profile": "cloudflare",
       "per_gen": {
         "cpu_ms": null,
-        "subrequest": 3,
-        "storage_class_a": 1,
+        "class_a_operation": 1,
         "egress_byte": null
       }
     }
@@ -67,18 +66,20 @@ anyone revising a schema: the resource is named in both files, or it is priced
 at nothing.
 
 A service that generates somewhere other than the request path — a container,
-a queue of its own, a GPU — names that somewhere:
+a queue of its own, a GPU — names what that somewhere is charged for:
 
 ```jsonc
-"per_gen": { "container_standard_4_s": 7.5, "subrequest": 3 }
+"per_gen": { "container_vcpu_s": 30, "container_memory_gb_s": 90 }
 ```
 
-Prefer a key that names the machine over keys that name what the machine is
-made of. `container_standard_4_s: 7.5` is checkable — the instance type is
-right there, and moving to a different one changes the key rather than
-quietly editing a number. `container_memory_gb_s: 90` is the same cost with
-the reason it is that cost removed, and a reader cannot tell whether it is
-still true.
+**Key it the way the vendor's price list is keyed**, not the way the thing is
+easiest to describe. Cloudflare bills a container by vCPU-second, memory
+GiB-second and disk GB-second, so those are the keys; an instance type is a
+preset of those three and prices nothing on its own. Where a vendor does bill
+per machine-second, the machine is the key.
+
+That rule is what keeps a table checkable against the page it was read from.
+A key nobody can find on that page is a key somebody invented.
 
 A `null` amount says to measure it rather than to assume it. Two resources
 have a measurement that means them: `cpu_ms` falls back to the digest's
@@ -134,11 +135,12 @@ Unit prices for one profile, in one month. Lives in
   "profile": "cloudflare",
   "effective": "2026-08",
   "currency": "USD",
+  "source": ["https://developers.cloudflare.com/workers/platform/pricing/",
+             "https://developers.cloudflare.com/r2/pricing/"],
+  "retrieved": "2026-08-25",
   "units": {
-    "cpu_ms": 0.0000000125,
-    "container_standard_4_s": 0.000225,
-    "subrequest": 0.0000004,
-    "storage_class_a": 0.0000045,
+    "cpu_ms": 0.00000002,
+    "class_a_operation": 0.0000045,
     "egress_byte": 0.0 } }
 ```
 
@@ -146,6 +148,11 @@ Each key under `units` is a price per one of the resources a manifest's
 `per_gen` counts, and the two are the same keys, so they multiply directly.
 A resource the table does not price is priced at nothing — right for R2's
 egress, and the reason an estimate is only ever as complete as its table.
+
+`source` and `retrieved` are required. The failure this format is most exposed
+to is not a stale price but a plausible one: a number that looks like a price,
+priced a plan, and came from nobody. A table has to say which page it was read
+from and on what day, so that anyone can go and disagree with it.
 
 **Pricing files are append-only.** A price change is a new file for a new
 month; editing an old one would make the estimates that cite it unreproducible,

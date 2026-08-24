@@ -14,9 +14,8 @@
       "billing": {
         "pricing_profile": "cloudflare",
         "per_gen": {
-          "cpu_ms": 4200,
-          "subrequest": 12,
-          "storage_class_a": 1,
+          "cpu_ms": null,
+          "class_a_operation": 1,
           "egress_byte": null
         }
       }

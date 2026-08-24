@@ -30,9 +30,8 @@ fn manifest(zoom: ZoomSemantics) -> ServiceManifest {
             billing: Some(Billing {
                 pricing_profile: "cloudflare".into(),
                 per_gen: [
-                    ("cpu_ms".to_string(), Some(28_000.0)),
-                    ("subrequest".to_string(), Some(3.0)),
-                    ("storage_class_a".to_string(), Some(1.0)),
+                    ("cpu_ms".to_string(), None),
+                    ("class_a_operation".to_string(), Some(1.0)),
                     ("egress_byte".to_string(), None),
                 ]
                 .into_iter()
@@ -48,8 +47,11 @@ fn manifest(zoom: ZoomSemantics) -> ServiceManifest {
 fn pricing() -> PricingTable {
     serde_json::from_str(
         r#"{"pricing":"okibi-pricing/1","profile":"cloudflare","effective":"2026-08",
-            "currency":"USD","units":{"cpu_ms":0.0000000125,"subrequest":0.0000004,
-            "storage_class_a":0.0000045,"egress_byte":0.0}}"#,
+            "currency":"USD",
+            "source":["https://developers.cloudflare.com/workers/platform/pricing/"],
+            "retrieved":"2026-08-25",
+            "units":{"cpu_ms":0.00000002,"class_a_operation":0.0000045,
+            "egress_byte":0.0}}"#,
     )
     .unwrap()
 }

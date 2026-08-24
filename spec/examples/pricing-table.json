@@ -3,13 +3,20 @@
   "profile": "cloudflare",
   "effective": "2026-08",
   "currency": "USD",
+  "source": [
+    "https://developers.cloudflare.com/workers/platform/pricing/",
+    "https://developers.cloudflare.com/r2/pricing/"
+  ],
+  "retrieved": "2026-08-25",
   "units": {
-    "cpu_ms": 1.25e-08,
-    "container_standard_4_s": 0.000225,
-    "container_standard_2_s": 0.0001125,
-    "container_basic_s": 5.63e-05,
-    "subrequest": 4e-07,
-    "storage_class_a": 4.5e-06,
+    "cpu_ms": 0.00000002,
+    "request": 0.0000003,
+    "container_memory_gb_s": 0.0000025,
+    "container_vcpu_s": 0.00002,
+    "container_disk_gb_s": 0.00000007,
+    "class_a_operation": 0.0000045,
+    "class_b_operation": 0.00000036,
+    "stored_gb_month": 0.015,
     "egress_byte": 0.0
   }
 }

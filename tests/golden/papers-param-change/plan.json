@@ -70,7 +70,7 @@
       "tiles": 6,
       "wall_clock_s": 37.455,
       "cpu_ms": 149820.0,
-      "usd": 0.00190695,
+      "usd": 0.0030234000000000003,
       "storage_delta_bytes": 463153.0
     },
     "no_warm": {
@@ -82,25 +82,25 @@
       {
         "coverage": 0.5,
         "tiles": 1,
-        "usd": 7.2000000000000005e-6,
+        "usd": 6.9e-6,
         "wall_clock_s": 0.5
       },
       {
         "coverage": 0.8,
         "tiles": 4,
-        "usd": 0.00110805,
+        "usd": 0.0017544000000000001,
         "wall_clock_s": 21.705
       },
       {
         "coverage": 0.9,
         "tiles": 4,
-        "usd": 0.00110805,
+        "usd": 0.0017544000000000001,
         "wall_clock_s": 21.705
       },
       {
         "coverage": 0.95,
         "tiles": 4,
-        "usd": 0.00110805,
+        "usd": 0.0017544000000000001,
         "wall_clock_s": 21.705
       }
     ]

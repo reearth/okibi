@@ -17,18 +17,23 @@
       "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
     },
     "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+    "source": {
+      "description": "Where these prices were read from. Required: a price nobody can check is a number someone remembered.",
+      "type": "array",
+      "items": { "type": "string", "format": "uri" },
+      "minItems": 1
+    },
+    "retrieved": {
+      "description": "The day the source was read, as YYYY-MM-DD.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
     "units": {
       "description": "Price of one of each resource a manifest's billing counts.",
       "type": "object",
-      "properties": {
-        "cpu_ms": { "type": "number", "minimum": 0 },
-        "subrequest": { "type": "number", "minimum": 0 },
-        "storage_class_a": { "type": "number", "minimum": 0 },
-        "egress_byte": { "type": "number", "minimum": 0 }
-      },
       "additionalProperties": { "type": "number", "minimum": 0 }
     }
   },
-  "required": ["pricing", "profile", "effective", "currency", "units"],
+  "required": ["pricing", "profile", "effective", "currency", "source", "retrieved", "units"],
   "additionalProperties": false
 }
