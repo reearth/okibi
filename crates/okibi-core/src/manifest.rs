@@ -140,12 +140,31 @@ impl ServiceManifest {
     }
 }
 
-/// The three axes a cache key is built from.
+/// The parts of a cache key that are not per-tile, spelled as the key spells
+/// them.
+///
+/// Three names for what a part is for, rather than three parts every service
+/// must have. A key made of two pieces fills two and leaves the third empty;
+/// splitting one piece three ways to fill the names would put strings in an
+/// event that are in no cache key, which is the one thing an epoch may not be.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Epoch {
+    #[serde(default)]
     pub source: String,
+    #[serde(default)]
     pub algo: String,
+    #[serde(default)]
     pub param: String,
+}
+
+impl Epoch {
+    /// Whether this says anything at all.
+    ///
+    /// An event with no epoch could never be matched against an invalidation,
+    /// so it would aggregate into a cell no plan can ever act on.
+    pub fn is_empty(&self) -> bool {
+        self.source.is_empty() && self.algo.is_empty() && self.param.is_empty()
+    }
 }
 
 #[cfg(test)]

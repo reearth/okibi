@@ -11,11 +11,20 @@ export type CacheStatus = "hit" | "miss" | "swr" | "error";
  */
 export type Origin = "organic" | "warm";
 
-/** The three axes a tile's cache key is built from. */
+/**
+ * The parts of a tile's cache key that are not per-tile, spelled the way the
+ * key spells them.
+ *
+ * Three names for what a part is *for* — where the data came from, how it was
+ * built, what it was built with — rather than three parts every service must
+ * have. A key made of two pieces fills two and leaves the third empty.
+ * Splitting one piece three ways to fill the names would put strings in an
+ * event that appear in no cache key, which is the one thing these may not be.
+ */
 export interface Epoch {
-  source: string;
-  algo: string;
-  param: string;
+  source?: string;
+  algo?: string;
+  param?: string;
 }
 
 /** One tile request. */

@@ -105,3 +105,24 @@ describe("what will not be written", () => {
     ).not.toThrow();
   });
 });
+
+/// An epoch is a part of the cache key, and a service whose key has two parts
+/// has two. What it may not have is none: such an event can never be matched
+/// against an invalidation, so it would be written, counted, and unusable.
+describe("as many epochs as the key has", () => {
+  it("takes two where there are two", () => {
+    const point = toDataPoint({
+      ...papers,
+      epoch: { source: "2026-08-24", algo: "9005" },
+    });
+
+    expect(point.blobs.slice(7, 10)).toEqual(["2026-08-24", "9005", ""]);
+  });
+
+  it("refuses an event with no epoch at all", () => {
+    expect(() => check({ ...papers, epoch: {} })).toThrow(NotWritable);
+    expect(() =>
+      check({ ...papers, epoch: { source: "", algo: "", param: "" } }),
+    ).toThrow(NotWritable);
+  });
+});

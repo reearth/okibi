@@ -53,6 +53,13 @@ export function check(event: TileDemandEvent): void {
       `hit for ${event.id} claims ${event.genMs}ms of generation`,
     );
   }
+  // An event with no epoch at all can never be matched against an
+  // invalidation, so it would aggregate into a cell no plan could ever act
+  // on: written, counted, and unusable.
+  const { source, algo, param } = event.epoch;
+  if (!source && !algo && !param) {
+    throw new NotWritable(`${event.id} has no epoch to have been cached under`);
+  }
 }
 
 /** One event as Analytics Engine columns. */
@@ -70,9 +77,12 @@ export function toDataPoint(event: TileDemandEvent): DataPoint {
       qk,
       qk ? qk8(qk) : "",
       event.cacheStatus,
-      event.epoch.source,
-      event.epoch.algo,
-      event.epoch.param,
+      // An axis this service does not have is an empty column, not a missing
+      // one: the binding is positional, and a hole would shift everything
+      // after it into the wrong blob.
+      event.epoch.source ?? "",
+      event.epoch.algo ?? "",
+      event.epoch.param ?? "",
       event.fmt,
       event.colo ?? "",
       event.origin,

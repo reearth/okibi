@@ -20,9 +20,9 @@ Examples: [`examples/`](examples/).
 | `tile.qk` | string | when `content` | The **normalised spatial key**: the tile's centre point projected to a Web Mercator quadkey. May be empty when `kind != content` |
 | `tile.qk8` | string | when `content` | `tile.qk` truncated to 8 characters, or the whole thing if it is shorter. For aggregation only |
 | `tile.cache.status` | string | ✔ | `hit`, `miss`, `swr` or `error` |
-| `tile.epoch.source` | string | ✔ | The source-data epoch. **Byte-identical to the string in the cache key** |
-| `tile.epoch.algo` | string | ✔ | The algorithm epoch. Likewise |
-| `tile.epoch.param` | string | ✔ | The parameter epoch. Likewise |
+| `tile.epoch.source` | string | one of | The source-data part of the cache key, **byte-identical to what is in it** |
+| `tile.epoch.algo` | string | the three | The algorithm part. Likewise |
+| `tile.epoch.param` | string | required | The parameter part. Likewise |
 | `tile.fmt` | string | ✔ | Delivered format: `qmesh`, `png`, `mvt`, `glb`, `json`, … |
 | `tile.colo` | string | — | Edge location code, e.g. `NRT`, where one is available |
 | `tile.origin` | string | ✔ | `organic` or `warm`. A request okibi itself made is `warm` |
@@ -56,7 +56,17 @@ where the demand is, and demand is mostly hits.
 **Write on the hot path.** Emit as the response goes out. Where the backend
 offers a non-blocking write, do not wait for it.
 
-**Keep the epochs byte-identical.** `tile.epoch.*` must equal the strings the
+**An epoch is a part of the cache key, spelled the way the key spells it.**
+Not a description of one: if the key says `9005`, the epoch is `9005`.
+
+The three names are a way to say what a part is *for* — where the data came
+from, how it was built, what it was built with — and okibi decides nothing by
+them; they appear in what a person reads about a change. A service whose key
+has two parts names two and leaves the third empty. Splitting one part into
+three to fill the names would mean inventing strings that are in no cache key,
+which is the one thing this attribute may not be.
+
+**Keep them byte-identical.** `tile.epoch.*` must equal the strings the
 cache key is built from, exactly. If they drift, okibi can no longer match "an
 invalidation happened" against "these tiles are the ones that died", and it
 will confidently warm the wrong set. Do not maintain this by discipline:
