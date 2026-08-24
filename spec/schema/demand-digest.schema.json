@@ -5,10 +5,25 @@
   "description": "One aggregated cell. See spec/demand-digest.md. A digest file is one of these per line.",
   "type": "object",
   "properties": {
-    "digest": { "const": "tile-demand-digest/1" },
-    "service": { "type": "string", "minLength": 1 },
-    "tileset": { "type": "string", "minLength": 1 },
-    "kind": { "enum": ["content", "tileset", "subtree", "meta"] },
+    "digest": {
+      "const": "tile-demand-digest/1"
+    },
+    "service": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tileset": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": [
+        "content",
+        "tileset",
+        "subtree",
+        "meta"
+      ]
+    },
     "qk8": {
       "description": "Eight quadkey characters, or \"-\" for records with no coordinates.",
       "type": "string",
@@ -24,22 +39,57 @@
       "type": "number",
       "minimum": 0
     },
-    "miss": { "type": "number", "minimum": 0 },
-    "p50_gen_ms": { "type": "number", "minimum": 0 },
-    "p95_gen_ms": { "type": "number", "minimum": 0 },
-    "sum_gen_ms": { "type": "number", "minimum": 0 },
-    "avg_bytes": { "type": "number", "minimum": 0 },
-    "bytes": { "type": "number", "minimum": 0 },
-    "tiles_observed": { "type": "integer", "minimum": 0 },
+    "miss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "p50_gen_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "p95_gen_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "sum_gen_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "avg_bytes": {
+      "type": "number",
+      "minimum": 0
+    },
+    "bytes": {
+      "type": "number",
+      "minimum": 0
+    },
+    "tiles_observed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sample_interval_max": {
+      "description": "The largest _sample_interval among the rows this cell was built from: how many events one row stood for, at worst. 1 means nothing here was sampled. Absent means the generator did not record it.",
+      "type": "number",
+      "minimum": 1
+    },
     "top_qk": {
       "description": "The cell's top tiles as [qk, id, req]. The quadkey places the tile; the native id is what a URL is built from.",
       "type": "array",
       "items": {
         "type": "array",
         "prefixItems": [
-          { "type": "string", "pattern": "^[0-3]+$" },
-          { "type": "string", "minLength": 1 },
-          { "type": "number", "minimum": 0 }
+          {
+            "type": "string",
+            "pattern": "^[0-3]+$"
+          },
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "number",
+            "minimum": 0
+          }
         ],
         "items": false,
         "minItems": 3
@@ -51,8 +101,14 @@
       "items": {
         "type": "array",
         "prefixItems": [
-          { "type": "string", "minLength": 1 },
-          { "type": "number", "minimum": 0 }
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "number",
+            "minimum": 0
+          }
         ],
         "items": false,
         "minItems": 2
@@ -75,16 +131,38 @@
     {
       "$comment": "Records with no coordinates cannot be placed in a cell, and list their top tiles by id.",
       "if": {
-        "properties": { "kind": { "const": "content" } },
-        "required": ["kind"]
+        "properties": {
+          "kind": {
+            "const": "content"
+          }
+        },
+        "required": [
+          "kind"
+        ]
       },
       "then": {
-        "properties": { "qk8": { "pattern": "^[0-3]{1,8}$" } },
-        "not": { "required": ["top_id"] }
+        "properties": {
+          "qk8": {
+            "pattern": "^[0-3]{1,8}$"
+          }
+        },
+        "not": {
+          "required": [
+            "top_id"
+          ]
+        }
       },
       "else": {
-        "properties": { "qk8": { "const": "-" } },
-        "not": { "required": ["top_qk"] }
+        "properties": {
+          "qk8": {
+            "const": "-"
+          }
+        },
+        "not": {
+          "required": [
+            "top_qk"
+          ]
+        }
       }
     }
   ]

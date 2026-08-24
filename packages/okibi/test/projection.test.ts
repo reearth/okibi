@@ -132,4 +132,34 @@ describe("the digest, through the binding", () => {
     expect(records).toHaveLength(0);
     expect(skipped.unplaceable).toBe(1);
   });
+
+  /// A sampled cell keeps the right totals and loses the tail, so how hard it
+  /// was sampled is worth carrying to whoever wonders why an estimate missed.
+  it("carries how hard the rows were sampled", () => {
+    const { records } = assembleDigest(
+      [
+        {
+          service: "papers",
+          tileset: "t",
+          kind: "content",
+          qk8: "13300211",
+          req: 90000,
+          miss: 0,
+          tiles_observed: 40,
+          sample_interval_max: 100,
+        },
+      ],
+      [],
+      "2026-08-23",
+      20,
+    );
+
+    expect(records[0].sample_interval_max).toBe(100);
+  });
+
+  it("asks the backend for it", () => {
+    expect(digestQueries(undefined, "2026-08-23").cells).toContain(
+      "MAX(_sample_interval) AS sample_interval_max",
+    );
+  });
 });

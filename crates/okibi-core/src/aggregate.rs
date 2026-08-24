@@ -32,6 +32,8 @@ pub struct CellRow {
     pub avg_bytes: Option<f64>,
     #[serde(deserialize_with = "number")]
     pub tiles_observed: f64,
+    #[serde(default, deserialize_with = "maybe_number")]
+    pub sample_interval_max: Option<f64>,
 }
 
 /// One row of the top-tiles query.
@@ -205,6 +207,7 @@ pub fn assemble(
         record.bytes = cell.bytes;
         record.avg_bytes = cell.avg_bytes;
         record.tiles_observed = cell.tiles_observed.max(0.0) as u64;
+        record.sample_interval_max = cell.sample_interval_max;
 
         if kind.is_placed() {
             let mut top = placed.remove(&key).unwrap_or_default();
@@ -252,6 +255,7 @@ mod tests {
             bytes: Some(4.2e9),
             avg_bytes: Some(88231.0),
             tiles_observed: 3.0,
+            sample_interval_max: Some(1.0),
         }
     }
 
@@ -356,6 +360,30 @@ mod tests {
 
         let cells: Vec<&str> = records.iter().map(|r| r.qk8.as_str()).collect();
         assert_eq!(cells, ["13300211", "13300212", "13300213"]);
+    }
+
+    /// Recorded so that a wrong estimate has somewhere to be explained from.
+    /// The worst of the rows is what matters: one row standing for a hundred
+    /// events is what makes a cell's tail untrustworthy, however many
+    /// unsampled rows sit beside it.
+    #[test]
+    fn keeps_how_hard_the_rows_were_sampled() {
+        let mut heavy = cell("content", "13300211", 900.0);
+        heavy.sample_interval_max = Some(100.0);
+
+        let (records, _) = assemble(vec![heavy], vec![], &window(), 20);
+        assert_eq!(records[0].sample_interval_max, Some(100.0));
+    }
+
+    /// A generator that did not record it says nothing rather than claiming
+    /// the rows were whole.
+    #[test]
+    fn says_nothing_when_it_was_not_measured() {
+        let mut unmeasured = cell("content", "13300211", 1.0);
+        unmeasured.sample_interval_max = None;
+
+        let (records, _) = assemble(vec![unmeasured], vec![], &window(), 20);
+        assert_eq!(records[0].sample_interval_max, None);
     }
 
     /// The SQL API writes 64-bit integers as strings and floats as numbers,

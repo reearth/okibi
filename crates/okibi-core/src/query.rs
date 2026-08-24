@@ -88,7 +88,8 @@ pub fn cells(config: &DigestQuery, window: &Window) -> String {
   SUM(double2 * _sample_interval) AS sum_gen_ms,
   SUM(double4 * _sample_interval) AS bytes,
   SUM(double4 * _sample_interval) / SUM(double1 * _sample_interval) AS avg_bytes,
-  COUNT(DISTINCT blob4) AS tiles_observed
+  COUNT(DISTINCT blob4) AS tiles_observed,
+  MAX(_sample_interval) AS sample_interval_max
 FROM {dataset}
 WHERE timestamp >= toDateTime({from})
   AND timestamp < toDateTime({to}){services}
@@ -182,6 +183,18 @@ mod tests {
         for line in gen_lines {
             assert!(!line.contains("organic"), "{line}");
         }
+    }
+
+    /// Not a frequency, so not weighted: this is the weight itself, and
+    /// multiplying it by anything would be asking how heavily the sampling
+    /// was sampled.
+    #[test]
+    fn asks_how_hard_the_rows_were_sampled() {
+        let sql = cells(&config(), &window());
+        assert!(
+            sql.contains("MAX(_sample_interval) AS sample_interval_max"),
+            "{sql}"
+        );
     }
 
     #[test]

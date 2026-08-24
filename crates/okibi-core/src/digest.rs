@@ -58,6 +58,18 @@ pub struct DigestRecord {
     /// Distinct tiles seen in this cell: the denominator estimates rest on.
     pub tiles_observed: u64,
 
+    /// How many events one row stood for, at worst.
+    ///
+    /// Recorded and not acted on. A backend that samples keeps the totals
+    /// right — the weight is restored when they are summed — but it cannot
+    /// keep the tail right: a cell whose rows each stood for a hundred events
+    /// knows roughly how much demand it had and very little about which tiles
+    /// it was spread across. When an estimate turns out wrong, this is the
+    /// first thing worth looking at, and only if it was written down while
+    /// the rows still existed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sample_interval_max: Option<f64>,
+
     /// The cell's top tiles, as `[qk, id, req]`. Absent for unplaced records.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub top_qk: Vec<TopTile>,
@@ -128,6 +140,7 @@ impl DigestRecord {
             avg_bytes: None,
             bytes: None,
             tiles_observed: 0,
+            sample_interval_max: None,
             top_qk: Vec::new(),
             top_id: Vec::new(),
         }

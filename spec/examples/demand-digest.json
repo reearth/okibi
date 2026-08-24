@@ -13,6 +13,7 @@
   "avg_bytes": 88231,
   "bytes": 4200000000,
   "tiles_observed": 1240,
+  "sample_interval_max": 1,
   "top_qk": [
     [
       "13300211231022",

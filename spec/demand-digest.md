@@ -24,6 +24,7 @@ JSONL or Parquet. One record per `(service, tileset, kind, qk8, window)`.
   "p50_gen_ms": 28900, "p95_gen_ms": 41200, "sum_gen_ms": 9016800,
   "avg_bytes": 88231, "bytes": 4.2e9,
   "tiles_observed": 1240,
+  "sample_interval_max": 1,
   "top_qk": [ ["13300211231022", "14/14552/6451", 1820],
               ["13300211231023", "14/14553/6451", 1544] ] }
 ```
@@ -36,7 +37,16 @@ JSONL or Parquet. One record per `(service, tileset, kind, qk8, window)`.
 | `p50_gen_ms`, `p95_gen_ms`, `sum_gen_ms` | Generation time. May include `warm` requests |
 | `avg_bytes`, `bytes` | Response sizes |
 | `tiles_observed` | Distinct tiles actually seen in this cell. The denominator every estimate is built on |
+| `sample_interval_max` | How many events one row stood for, at worst. `1` means nothing here was sampled |
 | `top_qk` | Optional. The cell's top tiles, `[qk, id, req]`, default top 20 |
+
+`sample_interval_max` is recorded and not acted on. A backend that samples
+keeps the totals right — the weight is restored when they are summed — but it
+cannot keep the tail right: a cell whose rows each stood for a hundred events
+knows roughly how much demand it had and very little about which tiles it was
+spread across. When an estimate turns out wrong, this is the first thing worth
+looking at, and it is only there to be looked at if it was written down while
+the rows still existed.
 
 A top tile carries both keys because both are needed and neither implies the
 other. The quadkey says where the tile is, which is what the invalidation
