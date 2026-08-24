@@ -15,7 +15,7 @@
       "service": "buildings",
       "priority": 1.0,
       "lane": "warm",
-      "expected_gen_ms": 0.0,
+      "expected_gen_ms": 5400.0,
       "saved_req_estimate": 20288.21007951151
     },
     {
@@ -53,47 +53,47 @@
   ],
   "stats": {
     "total": 5,
-    "sum_expected_gen_ms": 22300.0,
+    "sum_expected_gen_ms": 27700.0,
     "coverage_of_demand": 0.44506578947368425
   },
   "estimate": {
     "pricing": "tests/golden/buildings-size-buckets/pricing.json@sha256:2222222222222222222222222222222222222222222222222222222222222222",
     "warm": {
       "tiles": 5,
-      "wall_clock_s": 2.7875,
-      "cpu_ms": 22300.0,
-      "usd": 0.00046849999999999995,
+      "wall_clock_s": 3.4625,
+      "cpu_ms": 27700.0,
+      "usd": 0.0005765,
       "storage_delta_bytes": 922619.0
     },
     "no_warm": {
       "affected_first_requests": 1066.0,
-      "user_wait_ms_total": 5883404.295051354,
+      "user_wait_ms_total": 5888779.084967321,
       "p95_first_byte_ms": 10400.0
     },
     "marginal": [
       {
         "coverage": 0.5,
         "tiles": 1,
-        "usd": 4.5e-6,
-        "wall_clock_s": 0.25
+        "usd": 0.0001125,
+        "wall_clock_s": 0.675
       },
       {
         "coverage": 0.8,
         "tiles": 1,
-        "usd": 4.5e-6,
-        "wall_clock_s": 0.25
+        "usd": 0.0001125,
+        "wall_clock_s": 0.675
       },
       {
         "coverage": 0.9,
         "tiles": 2,
-        "usd": 0.000117,
-        "wall_clock_s": 0.675
+        "usd": 0.000225,
+        "wall_clock_s": 1.35
       },
       {
         "coverage": 0.95,
         "tiles": 3,
-        "usd": 0.0002295,
-        "wall_clock_s": 1.35
+        "usd": 0.0003375,
+        "wall_clock_s": 2.025
       }
     ]
   }
