@@ -1,8 +1,0 @@
-{
-  "config": "okibi-watch/1",
-  "services": [
-    { "service": "terrain", "base_url": "https://terrain.reearth.land" },
-    { "service": "buildings", "base_url": "https://buildings.reearth.land" },
-    { "service": "papers", "base_url": "https://papers.reearth.land" }
-  ]
-}

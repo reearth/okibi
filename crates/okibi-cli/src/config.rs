@@ -48,7 +48,39 @@ fn default_top_rows() -> usize {
     10_000
 }
 
+impl Default for Config {
+    /// Every service in the dataset, which is what the dataset is.
+    ///
+    /// A roster of services would be a second list of who exists, kept beside
+    /// the one that already exists — and the one that already exists is the
+    /// dataset: a service that writes events appears, one that does not, does
+    /// not. Nothing has to be added to a file for a new service to be
+    /// aggregated.
+    fn default() -> Self {
+        Config {
+            config: CONFIG_VERSION.to_string(),
+            account_id: None,
+            dataset: default_dataset(),
+            services: Vec::new(),
+            top_n: default_top_n(),
+            top_rows: default_top_rows(),
+        }
+    }
+}
+
 impl Config {
+    /// The config, or the defaults if there is no file.
+    ///
+    /// Absent is a valid answer: the defaults aggregate the whole dataset, and
+    /// the account comes from the environment, so an installation that wants
+    /// nothing unusual configures nothing.
+    pub fn load_or_default(path: &Path) -> Result<Self> {
+        if !path.exists() {
+            return Ok(Config::default());
+        }
+        Config::load(path)
+    }
+
     pub fn load(path: &Path) -> Result<Self> {
         let text =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
@@ -80,6 +112,20 @@ mod tests {
         assert_eq!(config.account_id.as_deref(), Some("abc"));
         assert_eq!(config.top_n, 20);
         assert!(config.services.is_empty());
+    }
+
+    /// An installation that wants nothing unusual should configure nothing.
+    #[test]
+    fn no_file_is_a_valid_configuration() {
+        let missing = std::env::temp_dir().join("okibi-no-such-config.json");
+        let _ = std::fs::remove_file(&missing);
+
+        let config = Config::load_or_default(&missing).unwrap();
+        assert_eq!(config.dataset, "tile_demand_1");
+        assert!(
+            config.services.is_empty(),
+            "which reads every service in the dataset"
+        );
     }
 
     #[test]

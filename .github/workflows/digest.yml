@@ -19,6 +19,9 @@ concurrency:
 
 jobs:
   digest:
+    # Every service in the dataset, because the dataset is the list. A roster
+    # kept here would be a second answer to who exists, and wrong the day a
+    # service is added to one and not the other.
     name: Aggregate yesterday
     runs-on: ubuntu-latest
     steps:
@@ -35,7 +38,6 @@ jobs:
           OKIBI_ACCOUNT_ID: ${{ vars.OKIBI_ACCOUNT_ID }}
         run: |
           cargo run --release -p okibi-cli -- digest \
-            --config services.json \
             ${{ inputs.date && format('--date {0}', inputs.date) || '' }} \
             --out digests/
 

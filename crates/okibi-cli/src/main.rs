@@ -246,7 +246,7 @@ async fn run_digest(
     out: &str,
     print_sql: bool,
 ) -> Result<()> {
-    let config = Config::load(config_path)?;
+    let config = Config::load_or_default(config_path)?;
     let window = match date {
         Some(date) => Window::parse(date)?,
         None => Window::yesterday(),

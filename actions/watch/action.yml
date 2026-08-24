@@ -1,0 +1,154 @@
+name: okibi watch
+description: >
+  Notice when a service went cold without anyone deploying, and warm it.
+
+# Not every invalidation is a deploy. A service that resolves part of its cache
+# key at request time — the latest upstream release, a revalidation probe —
+# can go cold with nothing pushed, and actions/plan only ever sees commits.
+#
+# So a service watches itself. It already knows its own name and its own URL,
+# and it already holds the credentials this needs for the pull-request
+# estimate; a central watcher would need a list of who exists, kept beside the
+# services it lists and wrong the day one is added.
+#
+# What it compares is what the service currently reports against what it
+# reported last time. `okibi invalidation` does not care whether two epochs
+# files differ because of a commit or because upstream moved.
+
+inputs:
+  service:
+    description: The service's name, as it appears in its own events.
+    required: true
+  epochs-url:
+    description: Where the service reports the epochs it is currently using.
+    required: true
+  manifests:
+    description: The service manifest, from this repository.
+    required: true
+  digests:
+    description: A directory of demand digests, already fetched.
+    required: true
+  state-bucket:
+    description: R2 bucket holding what was reported last time.
+    default: okibi
+  pricing:
+    description: The pricing table to cost the plan with.
+    default: pricing/cloudflare-2026-08.json
+  budget-usd:
+    description: What a run may spend with nobody watching.
+    default: "5"
+  executor-url:
+    description: The executor to hand the plan to.
+    required: false
+  executor-token:
+    description: The secret the executor is called with.
+    required: false
+  warm-secret:
+    description: The secret a service checks before believing a request is okibi's.
+    required: false
+  okibi-ref:
+    description: Which version of okibi to build.
+    default: main
+
+outputs:
+  planned:
+    description: How many plans were produced, which is zero when nothing moved.
+    value: ${{ steps.watch.outputs.planned }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v5
+      with:
+        repository: reearth/okibi
+        ref: ${{ inputs.okibi-ref }}
+        path: .okibi-src
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: .okibi-src
+    - name: Build okibi
+      shell: bash
+      run: cargo build --release -p okibi-cli --manifest-path .okibi-src/Cargo.toml
+
+    - name: Compare, plan, hand over
+      id: watch
+      shell: bash
+      env:
+        OKIBI: .okibi-src/target/release/okibi
+        SERVICE: ${{ inputs.service }}
+        BUCKET: ${{ inputs.state-bucket }}
+        EXECUTOR_URL: ${{ inputs.executor-url }}
+        EXECUTOR_TOKEN: ${{ inputs.executor-token }}
+        OKIBI_WARM_SECRET: ${{ inputs.warm-secret }}
+      run: |
+        set -euo pipefail
+
+        now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        mkdir -p .okibi/state .okibi/events .okibi/plans
+        planned=0
+
+        curl -sf "${{ inputs.epochs-url }}" -o ".okibi/state/now.json"
+
+        # No previous state means this has never run. Nothing was cached under
+        # epochs nobody recorded, so there is nothing to warm — only something
+        # to remember for next time.
+        if ! npx --yes wrangler@4 r2 object get "$BUCKET/epochs/$SERVICE.json" \
+             --file ".okibi/state/last.json" --remote 2>/dev/null; then
+          echo "okibi: nothing recorded for $SERVICE yet, so recording without planning"
+          npx --yes wrangler@4 r2 object put "$BUCKET/epochs/$SERVICE.json" \
+            --file ".okibi/state/now.json" --remote
+          echo "planned=0" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        "$OKIBI" invalidation \
+          --before ".okibi/state/last.json" \
+          --after ".okibi/state/now.json" \
+          --occurred-at "$now" \
+          --out ".okibi/events/"
+
+        if [ -d .okibi/events ]; then
+          for event in .okibi/events/*.json; do
+            tileset=$(basename "$event" .json)
+            plan=".okibi/plans/$tileset.json"
+
+            "$OKIBI" plan \
+              --digests "${{ inputs.digests }}" \
+              --invalidation "$event" \
+              --manifests "${{ inputs.manifests }}" \
+              --pricing "${{ inputs.pricing }}" \
+              --epochs ".okibi/state/now.json" \
+              --budget-usd "${{ inputs.budget-usd }}" \
+              --out "$plan"
+
+            { "$OKIBI" report "$plan" --invalidation "$event"; printf '\n'; } \
+              >> "$GITHUB_STEP_SUMMARY"
+
+            if [ -n "$EXECUTOR_URL" ]; then
+              queued=$(curl -sf -X POST "$EXECUTOR_URL/plans" \
+                -H "Authorization: Bearer $EXECUTOR_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data-binary "@$plan" | jq -r '.queued')
+              echo "okibi: handed $queued entries to the executor"
+            else
+              "$OKIBI" warm "$plan" --manifests "${{ inputs.manifests }}"
+            fi
+
+            # The plan is what the estimate was read off, and the measurement
+            # it will be checked against arrives in tomorrow's digest. Keeping
+            # only one of the pair makes neither worth much.
+            npx --yes wrangler@4 r2 object put \
+              "$BUCKET/plans/$now-$SERVICE-$tileset.json" --file "$plan" --remote
+
+            planned=$((planned + 1))
+          done
+        fi
+
+        # Only now. Recording the change as seen before it has been handed
+        # over would mean a failure here is never retried: nothing would ever
+        # warm what was already marked as noticed.
+        npx --yes wrangler@4 r2 object put "$BUCKET/epochs/$SERVICE.json" \
+          --file ".okibi/state/now.json" --remote
+
+        echo "planned=$planned" >> "$GITHUB_OUTPUT"

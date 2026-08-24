@@ -11,6 +11,12 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    # Every six hours, for the invalidations no commit causes. As fine-grained
+    # as the thing being watched: an upstream release lookup cached for a day,
+    # a revalidation probe with a six-hour TTL. Polling faster would only ask
+    # the same question again.
+    - cron: "0 */6 * * *"
 
 jobs:
   # On a pull request nothing is warmed. The estimate is posted, and that on
@@ -96,4 +102,43 @@ jobs:
           executor-token: ${{ secrets.OKIBI_EXECUTOR_TOKEN }}
           # Shared with the service, which believes a request is okibi's only
           # when the header carries this value.
+          warm-secret: ${{ secrets.OKIBI_WARM_SECRET }}
+
+  # Nothing here was pushed. This service resolves part of its cache key at
+  # request time, so it can go cold on its own — and it is the one that knows
+  # that about itself, which is why the schedule lives here rather than in a
+  # central watcher holding a list of who exists.
+  watch:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: okibi-watch
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch the digests
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.OKIBI_R2_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.OKIBI_ACCOUNT_ID }}
+        run: |
+          mkdir -p digests
+          for day in $(seq 1 7); do
+            date=$(date -u -d "-$day day" +%Y-%m-%d)
+            npx --yes wrangler@4 r2 object get "okibi/digests/$date.jsonl" \
+              --file "digests/$date.jsonl" --remote || true
+          done
+
+      - uses: reearth/okibi/actions/watch@v1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.OKIBI_R2_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.OKIBI_ACCOUNT_ID }}
+        with:
+          service: papers
+          epochs-url: https://papers.reearth.land/okibi/epochs.json
+          manifests: okibi.manifest.json
+          digests: digests/
+          budget-usd: "5"
+          executor-url: ${{ vars.OKIBI_EXECUTOR_URL }}
+          executor-token: ${{ secrets.OKIBI_EXECUTOR_TOKEN }}
           warm-secret: ${{ secrets.OKIBI_WARM_SECRET }}

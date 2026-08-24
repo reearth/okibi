@@ -61,7 +61,7 @@ free — cache economics become something a reviewer can see.
 | [`packages/okibi`](packages/okibi) | the projection as wasm, for services |
 | [`packages/okibi-writer`](packages/okibi-writer) | the one call a service makes per tile request |
 | [`workers/executor`](workers/executor) | drains a plan from a queue, for warming that outlasts a CI job |
-| [`actions/`](actions) | `plan` on a pull request, `warm` after a deploy |
+| [`actions/`](actions) | `plan` on a pull request, `warm` after a deploy, `watch` for what no deploy caused |
 
 Warming is hours of waiting on IO. A Worker bills CPU time, so waiting there
 costs almost nothing; a CI job is a rented machine sitting idle, and stops at
@@ -98,6 +98,17 @@ Then [`@reearth/okibi-writer`](packages/okibi-writer) writes one event per tile
 request. Everything after that happens outside the service —
 [`examples/service-workflow.yml`](examples/service-workflow.yml) is the whole
 of it.
+
+**okibi keeps no roster.** No file here lists which services exist. The digest
+aggregates whatever is in the dataset, because writing events is already how a
+service joins; the warming is scheduled by each service from its own
+repository, because a service knows its own name. A central list would be a
+second answer to who exists, and wrong the day someone was added to one and
+not the other.
+
+What is here is the vocabulary, the planner and the prices — the parts that
+are the same wherever okibi is installed. The services named further up are
+the ones it was built for, not ones it is configured with.
 
 ## The name
 

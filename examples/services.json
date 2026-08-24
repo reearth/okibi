@@ -1,4 +1,0 @@
-{
-  "config": "okibi-digest-config/1",
-  "services": ["terrain", "buildings", "papers"]
-}
