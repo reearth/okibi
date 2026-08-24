@@ -3,7 +3,9 @@
     "manifest": "okibi-service/1",
     "service": "buildings",
     "url_template": "https://buildings.reearth.land/t/{tileset}/{id}?s={epoch.source}",
-    "meta_urls": { "tileset": "https://buildings.reearth.land/t/{tileset}/tileset.json" },
+    "meta_urls": {
+      "tileset": "https://buildings.reearth.land/t/{tileset}/tileset.json"
+    },
     "cost": {
       "default_gen_ms": 5400,
       "default_bytes": 220133,
@@ -11,10 +13,12 @@
       "rate_per_s": 4,
       "billing": {
         "pricing_profile": "cloudflare",
-        "cpu_ms_per_gen": 4200,
-        "subrequests_per_gen": 12,
-        "storage_class_a_per_gen": 1,
-        "egress_bytes_per_gen": null
+        "per_gen": {
+          "cpu_ms": 4200,
+          "subrequest": 12,
+          "storage_class_a": 1,
+          "egress_byte": null
+        }
       }
     },
     "zoom_semantics": "size_bucket"

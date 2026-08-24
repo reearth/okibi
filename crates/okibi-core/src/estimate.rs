@@ -67,16 +67,32 @@ pub fn cost_of(manifest: &ServiceManifest, pricing: &PricingTable, gen_ms: f64, 
         return 0.0;
     }
 
-    // Where the manifest counts nothing, the measurement stands in: a service
-    // that did not write down its CPU per generation still spent the time the
-    // digest recorded.
-    let cpu_ms = billing.cpu_ms_per_gen.unwrap_or(gen_ms);
-    let egress = billing.egress_bytes_per_gen.unwrap_or(bytes);
+    // Summed in the map's own order, which is sorted, so the same manifest
+    // gives the same floating-point total however it was written.
+    billing
+        .per_gen
+        .iter()
+        .map(|(resource, amount)| {
+            amount_of(resource, *amount, gen_ms, bytes) * pricing.unit(resource)
+        })
+        .sum()
+}
 
-    cpu_ms * pricing.unit(unit::CPU_MS)
-        + billing.subrequests_per_gen.unwrap_or(0.0) * pricing.unit(unit::SUBREQUEST)
-        + billing.storage_class_a_per_gen.unwrap_or(0.0) * pricing.unit(unit::STORAGE_CLASS_A)
-        + egress * pricing.unit(unit::EGRESS_BYTE)
+/// How much of one resource a generation spends.
+///
+/// A `null` amount says to measure it rather than to assume it, which only two
+/// resources have a measurement for: a service that did not write down its CPU
+/// per generation still spent the time the digest recorded, and one that did
+/// not write down its egress still sent the bytes. Anything else left null is
+/// counted as nothing — inventing a number for a resource nobody measured
+/// would put it in the estimate as though it were known.
+fn amount_of(resource: &str, amount: Option<f64>, gen_ms: f64, bytes: f64) -> f64 {
+    match (amount, resource) {
+        (Some(amount), _) => amount,
+        (None, unit::CPU_MS) => gen_ms,
+        (None, unit::EGRESS_BYTE) => bytes,
+        (None, _) => 0.0,
+    }
 }
 
 /// The four numbers, and the curve.
@@ -116,12 +132,14 @@ fn warm_cost(input: &Inputs<'_>, tiles: &[Warmed]) -> WarmCost {
         .map(|t| cost_of(input.manifest, input.pricing, t.gen_ms, t.bytes))
         .sum();
 
+    // What the plan will spend generating, which is the measured time unless
+    // the service says otherwise.
     let cpu_ms = input
         .manifest
         .cost
         .billing
         .as_ref()
-        .and_then(|b| b.cpu_ms_per_gen)
+        .and_then(|billing| billing.per_gen.get(unit::CPU_MS).copied().flatten())
         .map(|per| per * tiles.len() as f64)
         .unwrap_or(sum_gen_ms);
 

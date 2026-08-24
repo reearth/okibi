@@ -17,6 +17,11 @@ What a profile does have to distinguish is anything that changes the prices:
 a different vendor, a different account tier, a different region. Split it when
 one of those differs, not when a product does.
 
+Adding a product means adding keys, not files. The units here and the
+`per_gen` counts in a manifest are the same key space, so a service that
+renders in a container prices `container_vcpu_s` by naming it in both places —
+no schema anywhere has to learn what a container is.
+
 **These files are append-only.** A price change is a new file for a new month.
 Editing an old one silently changes what every estimate that cites it meant,
 and the hash in those plans then matches nothing.

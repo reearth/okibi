@@ -1,5 +1,7 @@
 //! What a service says about itself. See `spec/okibi-contract.md`.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 pub const MANIFEST_VERSION: &str = "okibi-service/1";
@@ -17,8 +19,8 @@ pub struct ServiceManifest {
     /// regenerates the tile.
     pub url_template: String,
     /// By tile kind, for the documents that have no coordinates.
-    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-    pub meta_urls: std::collections::BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub meta_urls: BTreeMap<String, String>,
     pub cost: Cost,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lanes: Option<Lanes>,
@@ -48,19 +50,30 @@ pub struct Cost {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Billing {
     pub pricing_profile: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cpu_ms_per_gen: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subrequests_per_gen: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_class_a_per_gen: Option<f64>,
-    /// `null` means the digest's `avg_bytes` is used instead.
+    /// How much of each resource one generation spends.
     ///
-    /// Written even when absent, unlike the counts above it. Here the empty
-    /// value means something — measure it — rather than meaning the field was
-    /// not filled in, and a reader should see that said rather than inferred.
+    /// The keys are the pricing table's keys, so a cost is the sum of the two
+    /// multiplied together and nothing has to map between them. That is also
+    /// what lets a service bill for something this specification has never
+    /// heard of — a container's memory-seconds, a GPU — without a revision:
+    /// the resource is named in both files or it is priced at nothing.
+    ///
+    /// A `null` amount means "measure it": see [`Billing::MEASURED`] for the
+    /// two that have a measurement to fall back on.
     #[serde(default)]
-    pub egress_bytes_per_gen: Option<f64>,
+    pub per_gen: BTreeMap<String, Option<f64>>,
+}
+
+impl Billing {
+    /// The resources a digest can stand in for when the amount is `null`.
+    ///
+    /// `cpu_ms` falls back to the measured generation time and `egress_byte`
+    /// to the measured response size. Any other resource left null is priced
+    /// at nothing, because there is no measurement that means it.
+    pub const MEASURED: [&'static str; 2] = [
+        crate::pricing::unit::CPU_MS,
+        crate::pricing::unit::EGRESS_BYTE,
+    ];
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

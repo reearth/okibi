@@ -69,8 +69,8 @@
     "warm": {
       "tiles": 6,
       "wall_clock_s": 37.455,
-      "cpu_ms": 168000.0,
-      "usd": 0.0021341999999999997,
+      "cpu_ms": 10800.0,
+      "usd": 0.0039942,
       "storage_delta_bytes": 463153.0
     },
     "no_warm": {
@@ -82,25 +82,25 @@
       {
         "coverage": 0.5,
         "tiles": 1,
-        "usd": 0.00035569999999999997,
+        "usd": 0.0006657,
         "wall_clock_s": 0.5
       },
       {
         "coverage": 0.8,
         "tiles": 4,
-        "usd": 0.0014227999999999999,
+        "usd": 0.0026628,
         "wall_clock_s": 21.705
       },
       {
         "coverage": 0.9,
         "tiles": 4,
-        "usd": 0.0014227999999999999,
+        "usd": 0.0026628,
         "wall_clock_s": 21.705
       },
       {
         "coverage": 0.95,
         "tiles": 4,
-        "usd": 0.0014227999999999999,
+        "usd": 0.0026628,
         "wall_clock_s": 21.705
       }
     ]

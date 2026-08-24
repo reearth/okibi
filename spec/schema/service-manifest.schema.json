@@ -33,16 +33,13 @@
           "type": "object",
           "properties": {
             "pricing_profile": { "type": "string", "minLength": 1 },
-            "cpu_ms_per_gen": { "type": "number", "minimum": 0 },
-            "subrequests_per_gen": { "type": "number", "minimum": 0 },
-            "storage_class_a_per_gen": { "type": "number", "minimum": 0 },
-            "egress_bytes_per_gen": {
-              "description": "null means the digest's avg_bytes is used instead.",
-              "type": ["number", "null"],
-              "minimum": 0
+            "per_gen": {
+              "description": "How much of each resource one generation spends, keyed the way the pricing table keys its units. null means measure it: cpu_ms falls back to the digest's p50_gen_ms and egress_byte to its avg_bytes; any other resource left null counts as nothing.",
+              "type": "object",
+              "additionalProperties": { "type": ["number", "null"], "minimum": 0 }
             }
           },
-          "required": ["pricing_profile"],
+          "required": ["pricing_profile", "per_gen"],
           "additionalProperties": false
         }
       },

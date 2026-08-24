@@ -30,10 +30,14 @@ if it is not in here or in a digest, the planner cannot act on it.
     "rate_per_s": 2,
     "billing": {
       "pricing_profile": "cloudflare",
-      "cpu_ms_per_gen": 28000,
-      "subrequests_per_gen": 3,
-      "storage_class_a_per_gen": 1,
-      "egress_bytes_per_gen": null
+      "per_gen": {
+        "cpu_ms": 1800,
+        "container_memory_gb_s": 15,
+        "container_vcpu_s": 30,
+        "subrequest": 3,
+        "storage_class_a": 1,
+        "egress_byte": null
+      }
     }
   },
   "lanes": { "interactive_priority": true },
@@ -56,7 +60,19 @@ fits in a CI job.
 
 `billing` counts resources per generation and holds **no prices**. Prices move;
 a manifest that carried them would silently change the meaning of old
-estimates. `egress_bytes_per_gen: null` means "use the digest's `avg_bytes`".
+estimates.
+
+`per_gen` is keyed the way the pricing table keys its units, so a cost is the
+two multiplied together with nothing mapping between them. It is also why a
+service can bill for something this specification has never heard of — a
+container's memory-seconds, a GPU — without anyone revising a schema: the
+resource is named in both files, or it is priced at nothing.
+
+A `null` amount says to measure it rather than to assume it. Two resources
+have a measurement that means them: `cpu_ms` falls back to the digest's
+`p50_gen_ms` and `egress_byte` to its `avg_bytes`. Anything else left null
+counts as nothing, because inventing a number for a resource nobody measured
+would put it in the estimate as though it were known.
 
 `depends_on` with `order: "before"` puts the dependency's tiles for the same
 space ahead of the dependent's: a service warms after whatever it will call
@@ -108,13 +124,17 @@ Unit prices for one profile, in one month. Lives in
   "currency": "USD",
   "units": {
     "cpu_ms": 0.0000000125,
+    "container_memory_gb_s": 0.0000025,
+    "container_vcpu_s": 0.00002,
     "subrequest": 0.0000004,
     "storage_class_a": 0.0000045,
     "egress_byte": 0.0 } }
 ```
 
 Each key under `units` is a price per one of the resources a manifest's
-`billing` counts, so the two multiply directly.
+`per_gen` counts, and the two are the same keys, so they multiply directly.
+A resource the table does not price is priced at nothing — right for R2's
+egress, and the reason an estimate is only ever as complete as its table.
 
 **Pricing files are append-only.** A price change is a new file for a new
 month; editing an old one would make the estimates that cite it unreproducible,

@@ -12,17 +12,25 @@
     "rate_per_s": 2,
     "billing": {
       "pricing_profile": "cloudflare",
-      "cpu_ms_per_gen": 28000,
-      "subrequests_per_gen": 3,
-      "storage_class_a_per_gen": 1,
-      "egress_bytes_per_gen": null
+      "per_gen": {
+        "cpu_ms": 1800,
+        "container_memory_gb_s": 15,
+        "container_vcpu_s": 30,
+        "subrequest": 3,
+        "storage_class_a": 1,
+        "egress_byte": null
+      }
     }
   },
   "lanes": {
     "interactive_priority": true
   },
   "depends_on": [
-    { "service": "terrain", "reason": "elevation lookup", "order": "before" }
+    {
+      "service": "terrain",
+      "reason": "elevation lookup",
+      "order": "before"
+    }
   ],
   "zoom_semantics": "resolution"
 }

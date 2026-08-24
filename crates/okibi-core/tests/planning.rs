@@ -29,10 +29,14 @@ fn manifest(zoom: ZoomSemantics) -> ServiceManifest {
             rate_per_s: 2.0,
             billing: Some(Billing {
                 pricing_profile: "cloudflare".into(),
-                cpu_ms_per_gen: Some(28_000.0),
-                subrequests_per_gen: Some(3.0),
-                storage_class_a_per_gen: Some(1.0),
-                egress_bytes_per_gen: None,
+                per_gen: [
+                    ("cpu_ms".to_string(), Some(28_000.0)),
+                    ("subrequest".to_string(), Some(3.0)),
+                    ("storage_class_a".to_string(), Some(1.0)),
+                    ("egress_byte".to_string(), None),
+                ]
+                .into_iter()
+                .collect(),
             }),
         },
         lanes: None,
