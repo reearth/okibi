@@ -58,6 +58,10 @@ tail is what on-demand generation is for.
 **Dependencies before dependents.** A `depends_on` with `order: "before"`
 places the dependency's entries for the same space ahead of the dependent's.
 
+This has nothing to order yet. An invalidation event names one service, so
+every entry in a plan belongs to that service, and the rule waits for the day
+a plan can span two.
+
 **Then cut.** `concurrency_limit × rate_per_s` against the deadline gives how
 much can actually be fetched; the ordering above says what survives. Whatever
 was cut shows up as `stats.coverage_of_demand` being less than 1, rather than
@@ -78,9 +82,11 @@ in the manifest asserts.
 The same inputs must produce the same plan, byte for byte. Not approximately
 the same set of tiles in roughly that order: the same file.
 
-- Entries are sorted by the total order `(priority desc, service, qk, id)`,
-  stably. The tail of the ordering exists to break ties that floating point
-  would otherwise break arbitrarily.
+- Entries are sorted by the total order `(metadata first, priority desc,
+  service, qk, id)`. The tail of the ordering exists to break ties that
+  floating point would otherwise break arbitrarily, and the quadkey in it does
+  a second job: a quadkey sorts before the quadkeys it is a prefix of, so an
+  ancestor precedes its descendants once their priorities are equal.
 - Floating-point combination happens in a defined order, so that a sum is not
   at the mercy of what order the inputs happened to arrive in.
 - Golden tests in [`tests/golden/`](../tests/golden) hold a set of inputs
@@ -98,10 +104,18 @@ the decision needs both sides of a comparison.
 
 | | How |
 |---|---|
-| **Time** | `Σ expected_gen_ms / concurrency_limit`, capped by `rate_per_s` |
+| **Time** | the larger of `Σ expected_gen_ms / concurrency_limit` and `tiles / rate_per_s` |
 | **Money** | manifest `billing` counts × pricing table units |
 | **Storage** | `Σ expected_bytes` added by the new epoch, alongside the old epoch's `reclaimable` bytes |
-| **Opportunity** | `Σ(req × p50_gen_ms)` over what was *not* warmed — the waiting that interactive traffic does instead |
+| **Opportunity** | the tiles left out, each at its cell's `p50_gen_ms` — the waiting interactive traffic does instead |
+
+Time takes the larger of two limits because either can bind: many cheap tiles
+run out of request rate, a few expensive ones run out of concurrency.
+
+Opportunity counts tiles rather than requests, because a cold tile is generated
+once and is then not cold. The number of people who wait is the number of tiles
+nobody warmed — `tiles_observed` across the cells in scope, less what the plan
+named — and each waits as long as its own cell measured.
 
 Money keeps resource counts and unit prices apart on purpose: counts belong to
 the service and change when its code changes, prices belong to the vendor and

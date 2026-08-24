@@ -1,0 +1,108 @@
+{
+  "plan": "okibi-warm-plan/1",
+  "derived_from": {
+    "digest": [
+      "tests/golden/papers-param-change/digest.jsonl"
+    ],
+    "invalidation": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "manifests": {
+      "papers": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  },
+  "entries": [
+    {
+      "url": "https://papers.reearth.land/t/style-aoi-04/meta.json",
+      "service": "papers",
+      "priority": 1.0,
+      "lane": "warm",
+      "expected_gen_ms": 120.0,
+      "saved_req_estimate": 8260.199818086829
+    },
+    {
+      "url": "https://papers.reearth.land/t/style-aoi-04/10/909/403?e=style-aoi-04@r13",
+      "service": "papers",
+      "priority": 1.0,
+      "lane": "warm",
+      "expected_gen_ms": 28900.0,
+      "saved_req_estimate": 345.245351780864
+    },
+    {
+      "url": "https://papers.reearth.land/t/style-aoi-04/14/14552/6451?e=style-aoi-04@r13",
+      "service": "papers",
+      "priority": 1.0,
+      "lane": "warm",
+      "expected_gen_ms": 28900.0,
+      "saved_req_estimate": 2992.1263821008215
+    },
+    {
+      "url": "https://papers.reearth.land/t/style-aoi-04/14/14553/6451?e=style-aoi-04@r13",
+      "service": "papers",
+      "priority": 0.8481871495468689,
+      "lane": "warm",
+      "expected_gen_ms": 28900.0,
+      "saved_req_estimate": 2537.883147118081
+    },
+    {
+      "url": "https://papers.reearth.land/t/style-aoi-04/14/14560/6455?e=style-aoi-04@r13",
+      "service": "papers",
+      "priority": 0.1583688378994759,
+      "lane": "warm",
+      "expected_gen_ms": 31500.0,
+      "saved_req_estimate": 434.74735884667524
+    },
+    {
+      "url": "https://papers.reearth.land/t/style-aoi-04/14/14561/6455?e=style-aoi-04@r13",
+      "service": "papers",
+      "priority": 0.09898052368717243,
+      "lane": "warm",
+      "expected_gen_ms": 31500.0,
+      "saved_req_estimate": 271.71709927917203
+    }
+  ],
+  "stats": {
+    "total": 6,
+    "sum_expected_gen_ms": 149820.0,
+    "coverage_of_demand": 0.1615284241635898
+  },
+  "estimate": {
+    "pricing": "tests/golden/papers-param-change/pricing.json@sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "warm": {
+      "tiles": 6,
+      "wall_clock_s": 37.455,
+      "cpu_ms": 168000.0,
+      "usd": 0.0021341999999999997,
+      "storage_delta_bytes": 463153.0
+    },
+    "no_warm": {
+      "affected_first_requests": 1545.0,
+      "user_wait_ms_total": 45424713.34622824,
+      "p95_first_byte_ms": 44000.0
+    },
+    "marginal": [
+      {
+        "coverage": 0.5,
+        "tiles": 1,
+        "usd": 0.00035569999999999997,
+        "wall_clock_s": 0.5
+      },
+      {
+        "coverage": 0.8,
+        "tiles": 4,
+        "usd": 0.0014227999999999999,
+        "wall_clock_s": 21.705
+      },
+      {
+        "coverage": 0.9,
+        "tiles": 4,
+        "usd": 0.0014227999999999999,
+        "wall_clock_s": 21.705
+      },
+      {
+        "coverage": 0.95,
+        "tiles": 4,
+        "usd": 0.0014227999999999999,
+        "wall_clock_s": 21.705
+      }
+    ]
+  }
+}

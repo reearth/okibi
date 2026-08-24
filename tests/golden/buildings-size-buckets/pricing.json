@@ -1,0 +1,12 @@
+{
+  "pricing": "okibi-pricing/1",
+  "profile": "cloudflare",
+  "effective": "2026-08",
+  "currency": "USD",
+  "units": {
+    "cpu_ms": 0.0000000125,
+    "subrequest": 0.0000004,
+    "storage_class_a": 0.0000045,
+    "egress_byte": 0.0
+  }
+}

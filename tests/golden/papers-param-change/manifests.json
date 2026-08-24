@@ -1,0 +1,23 @@
+[
+  {
+    "manifest": "okibi-service/1",
+    "service": "papers",
+    "url_template": "https://papers.reearth.land/t/{tileset}/{id}?e={epoch.param}",
+    "meta_urls": { "tileset": "https://papers.reearth.land/t/{tileset}/meta.json" },
+    "cost": {
+      "default_gen_ms": 30000,
+      "default_bytes": 90000,
+      "concurrency_limit": 4,
+      "rate_per_s": 2,
+      "billing": {
+        "pricing_profile": "cloudflare",
+        "cpu_ms_per_gen": 28000,
+        "subrequests_per_gen": 3,
+        "storage_class_a_per_gen": 1,
+        "egress_bytes_per_gen": null
+      }
+    },
+    "lanes": { "interactive_priority": true },
+    "zoom_semantics": "resolution"
+  }
+]

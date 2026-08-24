@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 pub const DIGEST_VERSION: &str = "tile-demand-digest/1";
 
 /// What sort of request a record aggregates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
     Content,

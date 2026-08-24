@@ -1,0 +1,10 @@
+{
+  "event": "okibi-invalidation/1",
+  "service": "buildings",
+  "tileset": "overture-global",
+  "axis": "source",
+  "epoch_from": "overture-2026-07",
+  "epoch_to": "overture-2026-08",
+  "scope": { "type": "all" },
+  "occurred_at": "2026-08-24T02:00:00Z"
+}

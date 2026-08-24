@@ -1,0 +1,11 @@
+{
+  "event": "okibi-invalidation/1",
+  "service": "papers",
+  "tileset": "style-aoi-04",
+  "axis": "param",
+  "epoch_from": "style-aoi-04@r12",
+  "epoch_to": "style-aoi-04@r13",
+  "scope": { "type": "qk_prefixes", "prefixes": ["133002"] },
+  "occurred_at": "2026-08-24T02:00:00Z",
+  "deadline": "2026-08-24T08:00:00Z"
+}
