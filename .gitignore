@@ -11,6 +11,7 @@ dist/
 # wasm-pack writes its output here, next to the package that publishes it.
 packages/okibi/bundler/
 packages/okibi/nodejs/
+packages/okibi/workerd/
 
 # Staged into each package at publish time, from the copies at the root.
 packages/*/LICENSE-MIT

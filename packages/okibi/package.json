@@ -26,8 +26,8 @@
   "exports": {
     ".": {
       "workerd": {
-        "types": "./bundler/okibi.d.ts",
-        "default": "./bundler/okibi.js"
+        "types": "./workerd/okibi.d.ts",
+        "default": "./workerd/okibi.js"
       },
       "node": {
         "types": "./nodejs/okibi.d.ts",
@@ -50,11 +50,17 @@
       "types": "./nodejs/okibi.d.ts",
       "default": "./nodejs/okibi.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./workerd": {
+      "types": "./workerd/okibi.d.ts",
+      "default": "./workerd/okibi.js"
+    },
+    "./bundler/okibi_bg.wasm": "./bundler/okibi_bg.wasm"
   },
   "files": [
     "bundler",
     "nodejs",
+    "workerd",
     "dist",
     "README.md",
     "LICENSE-MIT",
@@ -63,7 +69,8 @@
   "sideEffects": [
     "*.wasm",
     "./bundler/okibi.js",
-    "./nodejs/okibi.js"
+    "./nodejs/okibi.js",
+    "./workerd/okibi.js"
   ],
   "scripts": {
     "build": "../../scripts/build-wasm.sh --release && tsc --project tsconfig.build.json",
