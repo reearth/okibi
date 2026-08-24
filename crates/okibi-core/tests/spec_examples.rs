@@ -67,6 +67,32 @@ fn examples_match_their_schemas() {
     }
 }
 
+/// `tile.qk8` is `tile.qk` cut to eight characters, and a digest cell's `qk8`
+/// is the cell its `top_qk` tiles fall in. A schema cannot say that one field
+/// is a prefix of another, and an example where they disagree would be an
+/// example of the aggregation not working.
+#[test]
+fn spatial_keys_agree_with_the_cells_they_fall_in() {
+    for (example, _) in CASES {
+        let doc = read_json(&spec_dir().join("examples").join(example));
+
+        if let (Some(qk), Some(qk8)) = (doc.get("tile.qk"), doc.get("tile.qk8")) {
+            let (qk, qk8) = (qk.as_str().unwrap(), qk8.as_str().unwrap());
+            assert_eq!(qk8, &qk[..qk8.len().min(qk.len())], "{example}");
+            assert_eq!(qk8.len(), qk.len().min(8), "{example}");
+        }
+
+        let (Some(cell), Some(top)) = (doc.get("qk8"), doc.get("top_qk")) else {
+            continue;
+        };
+        let cell = cell.as_str().unwrap();
+        for entry in top.as_array().unwrap() {
+            let tile = entry[0].as_str().unwrap();
+            assert!(tile.starts_with(cell), "{example}: {tile} is not in {cell}");
+        }
+    }
+}
+
 /// An example nobody validates is an example nobody maintains.
 #[test]
 fn every_example_is_covered() {

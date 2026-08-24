@@ -24,7 +24,7 @@ JSONL or Parquet. One record per `(service, tileset, kind, qk8, window)`.
   "p50_gen_ms": 28900, "p95_gen_ms": 41200, "sum_gen_ms": 9016800,
   "avg_bytes": 88231, "bytes": 4.2e9,
   "tiles_observed": 1240,
-  "top_qk": [ ["13300211231021", 1820], ["13300211231023", 1544] ] }
+  "top_qk": [ ["13300211231022", 1820], ["13300211231023", 1544] ] }
 ```
 
 | Field | Meaning |

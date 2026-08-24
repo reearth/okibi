@@ -97,8 +97,8 @@ A Terrain miss, quantized mesh, TMS-Geographic at z14
 
 ```jsonc
 { "tile.service": "terrain", "tile.tileset": "cesium-mesh/ellipsoid",
-  "tile.kind": "content", "tile.id": "14/29105/12903",
-  "tile.qk": "13300211231021", "tile.qk8": "13300211",
+  "tile.kind": "content", "tile.id": "14/29108/11439",
+  "tile.qk": "13300211231032", "tile.qk8": "13300211",
   "tile.cache.status": "miss",
   "tile.epoch.source": "gsi-dem-2026a", "tile.epoch.algo": "tc-0.9.2",
   "tile.epoch.param": "me1.0-wm",

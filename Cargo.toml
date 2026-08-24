@@ -17,11 +17,15 @@ version = "0.0.0"
 okibi-core = { path = "crates/okibi-core", version = "0.0.0" }
 okibi-qk = { path = "crates/okibi-qk", version = "0.0.0" }
 
-# Test-only. The schemas under spec/ are the original for what okibi's
-# documents are, so the examples beside them are checked against them rather
-# than proof-read.
-# Default features fetch remote `$ref`s over HTTP, which drags in a whole HTTP
-# client. Every schema here is a local file and resolving one over the network
-# would make the check depend on the network being up.
+# Test-only, all three.
+#
+# The schemas under spec/ are the original for what okibi's documents are, so
+# the examples beside them are checked against them rather than proof-read.
+# jsonschema's default features fetch remote `$ref`s over HTTP, which drags in
+# a whole HTTP client; every schema here is a local file, and resolving one
+# over the network would make the check depend on the network being up.
 jsonschema = { version = "0.51", default-features = false }
+# Projection has rules that hold over every tile rather than over the handful
+# anyone would think to write down, so they are stated as properties.
+proptest = "1.5"
 serde_json = "1.0"
