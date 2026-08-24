@@ -356,7 +356,15 @@ async fn run_warm(
         );
     }
 
-    let report = warm::warm(&plan, &limits, &default, dry_run).await?;
+    let secret = warm::secret_from_env();
+    if secret.is_none() && !dry_run {
+        eprintln!(
+            "okibi: no {} set, so these requests will be counted as demand",
+            warm::SECRET_VARS[0]
+        );
+    }
+
+    let report = warm::warm(&plan, &limits, &default, secret.as_deref(), dry_run).await?;
 
     eprintln!("okibi: warmed {} of {}", report.fetched, plan.entries.len());
     for (url, error) in &report.failed {

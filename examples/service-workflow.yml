@@ -94,3 +94,6 @@ jobs:
           mode: auto
           executor-url: ${{ vars.OKIBI_EXECUTOR_URL }}
           executor-token: ${{ secrets.OKIBI_EXECUTOR_TOKEN }}
+          # Shared with the service, which believes a request is okibi's only
+          # when the header carries this value.
+          warm-secret: ${{ secrets.OKIBI_WARM_SECRET }}

@@ -99,17 +99,36 @@ describe("the writer", () => {
 });
 
 describe("where a request came from", () => {
+  const SECRET = "a-shared-secret";
   const request = (headers: Record<string, string>) => ({
     headers: { get: (name: string) => headers[name] ?? null },
   });
 
   it("is warm when okibi asked", () => {
-    expect(originOf(request(warmHeaders()))).toBe("warm");
-    expect(warmHeaders()).toEqual({ [WARM_HEADER]: "1" });
+    expect(originOf(request(warmHeaders(SECRET)), SECRET)).toBe("warm");
+    expect(warmHeaders(SECRET)).toEqual({ [WARM_HEADER]: SECRET });
   });
 
   it("is organic when anyone else did", () => {
-    expect(originOf(request({}))).toBe("organic");
-    expect(originOf(request({ "User-Agent": "curl" }))).toBe("organic");
+    expect(originOf(request({}), SECRET)).toBe("organic");
+    expect(originOf(request({ "User-Agent": "curl" }), SECRET)).toBe("organic");
+  });
+
+  /// Demand that is not recorded is demand that is never warmed, so a mark
+  /// anyone could send would let anyone quietly delete their own traffic
+  /// from the ledger.
+  it("is organic when the mark is forged", () => {
+    expect(originOf(request({ [WARM_HEADER]: "1" }), SECRET)).toBe("organic");
+    expect(originOf(request({ [WARM_HEADER]: "guessing" }), SECRET)).toBe("organic");
+    expect(originOf(request({ [WARM_HEADER]: SECRET.slice(0, -1) }), SECRET)).toBe(
+      "organic",
+    );
+  });
+
+  /// Erring toward counting okibi's own traffic as demand is bounded and
+  /// visible; the other direction is a ledger anyone can edit.
+  it("marks nothing when no secret is configured", () => {
+    expect(originOf(request({ [WARM_HEADER]: "anything" }), undefined)).toBe("organic");
+    expect(originOf(request({ [WARM_HEADER]: "anything" }), "")).toBe("organic");
   });
 });

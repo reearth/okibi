@@ -6,7 +6,13 @@
 // so everything here is about getting the list into a queue and back out at a
 // pace the origin will tolerate.
 
-/** The header that keeps a warm request out of the demand ledger. */
+/**
+ * The header that keeps a warm request out of the demand ledger.
+ *
+ * The value is a shared secret rather than a `1`: a mark anyone could send is
+ * a way for anyone to remove their own requests from the ledger, and demand
+ * that is not recorded is demand that is never warmed.
+ */
 export const WARM_HEADER = "X-Okibi-Warm";
 
 export interface PlanEntry {
@@ -89,6 +95,7 @@ export interface Outcome {
 export async function warmBatch(
   messages: WarmMessage[],
   limits: Limits,
+  secret: string | undefined,
   fetcher: typeof fetch = fetch,
 ): Promise<Outcome[]> {
   const byService = new Map<string, WarmMessage[]>();
@@ -101,7 +108,7 @@ export async function warmBatch(
   const results = await Promise.all(
     [...byService].map(([service, queue]) =>
       pool(queue, concurrencyFor(limits, service), (message) =>
-        warmOne(message, fetcher),
+        warmOne(message, secret, fetcher),
       ),
     ),
   );
@@ -110,11 +117,14 @@ export async function warmBatch(
 
 async function warmOne(
   message: WarmMessage,
+  secret: string | undefined,
   fetcher: typeof fetch,
 ): Promise<Outcome> {
   try {
+    // Without the secret the tile still warms; only the ledger entry comes
+    // out as organic. Warming anyway beats refusing over bookkeeping.
     const response = await fetcher(message.url, {
-      headers: { [WARM_HEADER]: "1" },
+      headers: secret ? { [WARM_HEADER]: secret } : {},
     });
     return response.ok
       ? { url: message.url, ok: true, status: response.status }

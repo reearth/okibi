@@ -11,20 +11,24 @@ use okibi_core::{InvalidationEvent, WarmPlan};
 /// be run inside one and has to be handed to something without that limit.
 pub const ACTIONS_JOB_LIMIT_S: f64 = 6.0 * 3600.0;
 
-/// Which way a plan of this size has to be run.
+/// Whether a plan could be run inside the job that produced it.
+///
+/// This is a fact about the plan's size, not a decision about where to run it.
+/// Warming waits on IO for hours, which is free on a Worker and is a rented
+/// two-core machine sitting idle in a job, so the executor is the normal
+/// destination whatever the length. What this settles is whether running in
+/// place is available at all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Mode {
-    /// Short enough to finish inside the job that planned it.
-    Run,
-    /// Longer than a job may last, so it goes to a queue instead.
-    Enqueue,
+pub enum Length {
+    FitsInAJob,
+    LongerThanAJob,
 }
 
-pub fn mode_for(plan: &WarmPlan) -> Mode {
+pub fn length_of(plan: &WarmPlan) -> Length {
     if plan.estimate.warm.wall_clock_s > ACTIONS_JOB_LIMIT_S {
-        Mode::Enqueue
+        Length::LongerThanAJob
     } else {
-        Mode::Run
+        Length::FitsInAJob
     }
 }
 
@@ -93,13 +97,14 @@ pub fn markdown(plan: &WarmPlan, event: &InvalidationEvent) -> String {
     }
 
     out.push('\n');
-    match mode_for(plan) {
-        Mode::Run => out.push_str(&format!(
-            "Fits in a job with {} to spare, so it runs in place.\n",
+    match length_of(plan) {
+        Length::FitsInAJob => out.push_str(&format!(
+            "Short enough to run in a job, with {} to spare, if there is no \
+             executor to hand it to.\n",
             duration(ACTIONS_JOB_LIMIT_S - warm.wall_clock_s)
         )),
-        Mode::Enqueue => out.push_str(&format!(
-            "⚠ Longer than the {} a job may last, so it goes to the queue instead.\n",
+        Length::LongerThanAJob => out.push_str(&format!(
+            "⚠ Longer than the {} a job may last: this one needs the executor.\n",
             duration(ACTIONS_JOB_LIMIT_S)
         )),
     }
@@ -252,14 +257,14 @@ mod tests {
     fn a_plan_that_fits_says_how_much_room_is_left() {
         let report = markdown(&plan(10, 3600.0, 1.0), &event());
         assert!(report.contains("5h00m to spare"), "{report}");
-        assert_eq!(mode_for(&plan(10, 3600.0, 1.0)), Mode::Run);
+        assert_eq!(length_of(&plan(10, 3600.0, 1.0)), Length::FitsInAJob);
     }
 
     #[test]
     fn a_plan_too_long_for_a_job_says_so() {
         let long = plan(100_000, 7.0 * 3600.0, 90.0);
-        assert_eq!(mode_for(&long), Mode::Enqueue);
-        assert!(markdown(&long, &event()).contains("goes to the queue"));
+        assert_eq!(length_of(&long), Length::LongerThanAJob);
+        assert!(markdown(&long, &event()).contains("needs the executor"));
     }
 
     /// An invalidation nobody has demand for is the good case, and saying

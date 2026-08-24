@@ -25,8 +25,20 @@ use okibi_core::{ServiceManifest, WarmPlan};
 ///
 /// Without it the service writes `origin: organic` and okibi's warming becomes
 /// tomorrow's demand — a loop that ends with the plan describing the planner's
-/// own history.
+/// own history. The value is a shared secret rather than a `1`, because a mark
+/// anyone could send is a way for anyone to remove their own requests from the
+/// ledger.
 pub const WARM_HEADER: &str = "X-Okibi-Warm";
+
+/// Where the secret comes from.
+pub const SECRET_VARS: [&str; 1] = ["OKIBI_WARM_SECRET"];
+
+pub fn secret_from_env() -> Option<String> {
+    SECRET_VARS
+        .iter()
+        .filter_map(|name| std::env::var(name).ok())
+        .find(|value| !value.is_empty())
+}
 
 pub struct Limits {
     pub concurrency: usize,
@@ -69,6 +81,7 @@ pub async fn warm(
     plan: &WarmPlan,
     limits: &BTreeMap<String, Limits>,
     default: &Limits,
+    secret: Option<&str>,
     dry_run: bool,
 ) -> Result<Report> {
     let mut report = Report::default();
@@ -101,7 +114,7 @@ pub async fn warm(
 
     for (service, entries) in by_service {
         let limits = limits.get(service).unwrap_or(default);
-        let failures = warm_service(&client, &entries, limits).await?;
+        let failures = warm_service(&client, &entries, limits, secret).await?;
 
         report.fetched += entries.len() - failures.len();
         report.failed.extend(failures);
@@ -114,6 +127,7 @@ async fn warm_service(
     client: &reqwest::Client,
     entries: &[&okibi_core::Entry],
     limits: &Limits,
+    secret: Option<&str>,
 ) -> Result<Vec<(String, String)>> {
     let in_flight = Arc::new(tokio::sync::Semaphore::new(limits.concurrency));
     let started = Arc::new(AtomicUsize::new(0));
@@ -133,6 +147,7 @@ async fn warm_service(
         let url = entry.url.clone();
         let timeout = limits.timeout;
         let retries = limits.retries;
+        let secret = secret.map(str::to_string);
         let nth = started.fetch_add(1, Ordering::SeqCst);
 
         if nth > 0 && !gap.is_zero() {
@@ -141,7 +156,7 @@ async fn warm_service(
 
         tasks.push(tokio::spawn(async move {
             let _permit = permit;
-            let result = fetch(&client, &url, timeout, retries).await;
+            let result = fetch(&client, &url, secret.as_deref(), timeout, retries).await;
             result.err().map(|error| (url, error.to_string()))
         }));
     }
@@ -158,17 +173,21 @@ async fn warm_service(
 async fn fetch(
     client: &reqwest::Client,
     url: &str,
+    secret: Option<&str>,
     timeout: Duration,
     retries: usize,
 ) -> Result<()> {
     let mut attempt = 0;
     loop {
-        let response = client
-            .get(url)
-            .header(WARM_HEADER, "1")
-            .timeout(timeout)
-            .send()
-            .await;
+        // Without the secret the request still warms the tile; it is only the
+        // ledger entry that comes out as organic. Warming anyway beats
+        // refusing to warm because of a bookkeeping detail.
+        let mut request = client.get(url).timeout(timeout);
+        if let Some(secret) = secret {
+            request = request.header(WARM_HEADER, secret);
+        }
+
+        let response = request.send().await;
 
         let outcome = match response {
             Ok(response) if response.status().is_success() => return Ok(()),

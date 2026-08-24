@@ -80,11 +80,18 @@ describe("warming a batch", () => {
 
   it("marks every request as okibi's own", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response("", { status: 200 }));
-    await warmBatch([message("https://a.test/1")], {}, fetcher as never);
+    await warmBatch([message("https://a.test/1")], {}, "a-secret", fetcher as never);
 
     expect(fetcher).toHaveBeenCalledWith("https://a.test/1", {
-      headers: { [WARM_HEADER]: "1" },
+      headers: { [WARM_HEADER]: "a-secret" },
     });
+  });
+
+  it("warms anyway when no secret is configured", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response("", { status: 200 }));
+    await warmBatch([message("https://a.test/1")], {}, undefined, fetcher as never);
+
+    expect(fetcher).toHaveBeenCalledWith("https://a.test/1", { headers: {} });
   });
 
   it("reports what did not warm without giving up on the rest", async () => {
@@ -97,6 +104,7 @@ describe("warming a batch", () => {
     const outcomes = await warmBatch(
       [message("https://a.test/1"), message("https://a.test/2"), message("https://a.test/3")],
       {},
+      "a-secret",
       fetcher as never,
     );
 
@@ -106,7 +114,7 @@ describe("warming a batch", () => {
 
   it("survives a request that throws", async () => {
     const fetcher = vi.fn().mockRejectedValue(new Error("connection reset"));
-    const [outcome] = await warmBatch([message("https://a.test/1")], {}, fetcher as never);
+    const [outcome] = await warmBatch([message("https://a.test/1")], {}, "a-secret", fetcher as never);
 
     expect(outcome?.ok).toBe(false);
     expect(outcome?.error).toBe("connection reset");
@@ -126,7 +134,7 @@ describe("warming a batch", () => {
     const messages = Array.from({ length: 10 }, (_, i) =>
       message(`https://a.test/${i}`),
     );
-    await warmBatch(messages, { papers: 3 }, fetcher as never);
+    await warmBatch(messages, { papers: 3 }, "a-secret", fetcher as never);
 
     expect(peak).toBeLessThanOrEqual(3);
     expect(fetcher).toHaveBeenCalledTimes(10);
@@ -152,6 +160,7 @@ describe("warming a batch", () => {
         ...Array.from({ length: 6 }, (_, i) => message(`https://terrain.test/${i}`, "terrain")),
       ],
       { papers: 2, terrain: 5 },
+      "a-secret",
       fetcher as never,
     );
 
@@ -170,6 +179,7 @@ describe("warming a batch", () => {
     const outcomes = await warmBatch(
       [message("https://a.test/0"), message("https://a.test/1"), message("https://a.test/2")],
       { papers: 3 },
+      "a-secret",
       fetcher as never,
     );
 

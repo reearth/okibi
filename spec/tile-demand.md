@@ -63,12 +63,24 @@ will confidently warm the wrong set. Do not maintain this by discipline:
 read both the cache key and the event from one file, `okibi.epochs.json`, so
 that drift is not expressible.
 
-**Mark warmed requests.** The executor sends `X-Okibi-Warm: 1`; a service that
-sees it writes `tile.origin: "warm"`. Counting okibi's own requests as demand
-would make whatever okibi warmed look more popular next time, which would make
-okibi warm it again — a loop that ends with the plan describing the planner's
-history instead of anyone's traffic. Readers exclude `warm` from demand for
-this reason.
+**Mark warmed requests, and only okibi's.** The executor sends
+`X-Okibi-Warm: <shared secret>`; a service writes `tile.origin: "warm"` only
+when the value matches the secret it was configured with.
+
+Counting okibi's own requests as demand would make whatever okibi warmed look
+more popular next time, which would make okibi warm it again — a loop that
+ends with the plan describing the planner's history instead of anyone's
+traffic. So the mark has to exist.
+
+It has to be unforgeable for the opposite reason. A bare `X-Okibi-Warm: 1`
+that any client could send is a way for anyone on the internet to remove their
+own requests from the ledger — and demand that is not recorded is demand that
+is never warmed. The ledger is meant to be a record of what people asked for,
+not a record of what people were willing to admit to.
+
+A service with no secret configured marks nothing as warm. That errs toward
+counting okibi's own traffic as demand, which is a bounded and visible error;
+the other direction is a ledger anyone can edit.
 
 `gen_ms` is exempt: generation cost does not depend on who asked, so warm
 requests are perfectly good cost samples and estimates may use them.

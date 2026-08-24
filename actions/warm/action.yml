@@ -2,9 +2,13 @@ name: okibi warm
 description: Fetch a warm plan, in the runner or by handing it to the executor.
 
 # Warming is a GET to the service's own on-demand path, so this needs to know
-# nothing about tiles. What it decides is only where the fetching happens: a
-# job stops at six hours, and a plan longer than that has to go somewhere
-# without that limit.
+# nothing about tiles. What it decides is only where the fetching happens.
+#
+# The executor is the normal destination. Warming is hours of waiting on IO,
+# which a Worker bills at nearly nothing because it bills CPU time, and which
+# in a job is a rented two-core machine sitting idle — free on a public
+# repository, but still the wrong shape, and still capped at six hours.
+# Running in place is the fallback for when no executor is configured.
 
 inputs:
   plan:
@@ -14,13 +18,20 @@ inputs:
     description: The manifests, for the limits each origin will tolerate.
     required: true
   mode:
-    description: run, enqueue, or auto to decide by how long the plan is.
+    description: >
+      enqueue, run, or auto — which hands the plan to the executor when one is
+      configured and runs it here when not.
     default: auto
   executor-url:
     description: The executor to hand long plans to, e.g. https://okibi-executor.example.workers.dev
     required: false
   executor-token:
     description: The secret the executor is called with.
+    required: false
+  warm-secret:
+    description: >
+      The secret a service checks before believing a request is okibi's.
+      Without it the tiles still warm, but each one is counted as demand.
     required: false
   okibi-ref:
     description: Which version of okibi to build.
@@ -53,6 +64,7 @@ runs:
       env:
         OKIBI: .okibi-src/target/release/okibi
         EXECUTOR_TOKEN: ${{ inputs.executor-token }}
+        OKIBI_WARM_SECRET: ${{ inputs.warm-secret }}
       run: |
         set -euo pipefail
 
@@ -70,24 +82,34 @@ runs:
           exit 0
         fi
 
+        # Where to warm is not a question about this plan's length: it is a
+        # question about whether there is an executor. A job can only ever be
+        # the fallback, so a plan that does not fit in one and has nowhere
+        # else to go is a configuration problem rather than a scheduling one.
         mode="${{ inputs.mode }}"
+        if [ "$mode" = "auto" ]; then
+          if [ -n "${{ inputs.executor-url }}" ]; then
+            mode=enqueue
+          else
+            mode=run
+          fi
+        fi
+
         for plan in "${plans[@]}"; do
-          # A job stops at six hours. The plan already knows how long it is,
-          # so the decision is a lookup rather than a guess.
-          if [ "$mode" = "auto" ]; then
+          chosen="$mode"
+
+          if [ "$chosen" = "run" ]; then
             seconds=$(jq -r '.estimate.warm.wall_clock_s' "$plan")
             if [ "$(printf '%.0f' "$seconds")" -gt 21600 ]; then
-              chosen=enqueue
-            else
-              chosen=run
+              echo "okibi: $plan needs about $(printf '%.0f' "$seconds")s, which is longer" >&2
+              echo "okibi: than a job may run. Configure executor-url." >&2
+              exit 1
             fi
-          else
-            chosen="$mode"
           fi
 
           if [ "$chosen" = "enqueue" ]; then
             if [ -z "${{ inputs.executor-url }}" ]; then
-              echo "okibi: $plan is longer than a job may run and no executor was given" >&2
+              echo "okibi: mode is enqueue but no executor-url was given" >&2
               exit 1
             fi
             queued=$(curl -sf -X POST "${{ inputs.executor-url }}/plans" \

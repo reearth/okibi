@@ -22,6 +22,14 @@ export interface Env {
   OKIBI_EXECUTOR_TOKEN: string;
   /** JSON: how many of each service's tiles to have in flight. */
   OKIBI_LIMITS?: string;
+  /**
+   * The secret a service checks before believing a request is okibi's.
+   *
+   * Shared with every service this warms. Without it the tiles still warm,
+   * but each one is counted as demand — which is how warming becomes its own
+   * evidence.
+   */
+  OKIBI_WARM_SECRET?: string;
 }
 
 /** The most messages one `sendBatch` may carry. */
@@ -65,6 +73,7 @@ export default {
     const outcomes = await warmBatch(
       batch.messages.map((message) => message.body),
       limits,
+      env.OKIBI_WARM_SECRET,
     );
 
     outcomes.forEach((outcome, i) => {
