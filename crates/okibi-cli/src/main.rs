@@ -7,6 +7,8 @@
 mod config;
 mod digest;
 mod inputs;
+mod invalidation;
+mod report;
 mod review;
 mod sql;
 mod wae;
@@ -108,6 +110,41 @@ enum Command {
         dry_run: bool,
     },
 
+    /// Derive invalidation events from two versions of okibi.epochs.json.
+    ///
+    /// A service does not write these by hand: it edits the file its cache
+    /// keys come from, and the event is what the diff means.
+    Invalidation {
+        /// The epochs as they were, e.g. from `git show HEAD^:okibi.epochs.json`.
+        #[arg(long)]
+        before: PathBuf,
+
+        /// The epochs as they are now.
+        #[arg(long, default_value = "okibi.epochs.json")]
+        after: PathBuf,
+
+        /// When the change happened, as an RFC 3339 timestamp.
+        #[arg(long)]
+        occurred_at: String,
+
+        /// When the warming should be finished by.
+        #[arg(long)]
+        deadline: Option<String>,
+
+        /// Where to write. A directory takes `<tileset>.json`; `-` is stdout.
+        #[arg(long, default_value = "-")]
+        out: String,
+    },
+
+    /// Write a plan up as markdown, for a pull request to carry.
+    Report {
+        plan: PathBuf,
+
+        /// The invalidation the plan answers.
+        #[arg(long)]
+        invalidation: PathBuf,
+    },
+
     /// Say what changed between two plans.
     Diff { before: PathBuf, after: PathBuf },
 
@@ -187,6 +224,16 @@ async fn main() -> Result<()> {
             )
             .await
         }
+
+        Command::Invalidation {
+            before,
+            after,
+            occurred_at,
+            deadline,
+            out,
+        } => run_invalidation(&before, &after, &occurred_at, deadline.as_deref(), &out),
+
+        Command::Report { plan, invalidation } => run_report(&plan, &invalidation),
 
         Command::Diff { before, after } => run_diff(&before, &after),
         Command::Explain { plan, url } => run_explain(&plan, &url),
@@ -317,6 +364,51 @@ async fn run_warm(
 
     // A failed warm is not a failed deploy. The tiles that did not warm are
     // generated on demand, as they would have been anyway.
+    Ok(())
+}
+
+fn run_invalidation(
+    before: &Path,
+    after: &Path,
+    occurred_at: &str,
+    deadline: Option<&str>,
+    out: &str,
+) -> Result<()> {
+    let before: inputs::EpochsFile = inputs::read_json(before)?;
+    let after: inputs::EpochsFile = inputs::read_json(after)?;
+
+    let events = invalidation::between(&before, &after, occurred_at, deadline);
+    if events.is_empty() {
+        eprintln!("okibi: no epoch moved, so nothing was invalidated");
+        return Ok(());
+    }
+
+    if out == "-" {
+        let mut json = serde_json::to_string_pretty(&events)?;
+        json.push('\n');
+        std::io::stdout().write_all(json.as_bytes())?;
+        return Ok(());
+    }
+
+    // One file per event, because one event is what `plan` takes: a deploy
+    // that moved two tilesets is two plans, not one plan of both.
+    let dir = PathBuf::from(out);
+    std::fs::create_dir_all(&dir)?;
+    for event in &events {
+        let path = dir.join(format!("{}.json", event.tileset));
+        let mut json = serde_json::to_string_pretty(event)?;
+        json.push('\n');
+        std::fs::write(&path, json).with_context(|| format!("writing {}", path.display()))?;
+        eprintln!("okibi: wrote {}", path.display());
+    }
+    Ok(())
+}
+
+fn run_report(plan_path: &Path, invalidation: &Path) -> Result<()> {
+    let plan: WarmPlan = inputs::read_json(plan_path)?;
+    let event: okibi_core::InvalidationEvent = inputs::read_json(invalidation)?;
+
+    print!("{}", report::markdown(&plan, &event));
     Ok(())
 }
 

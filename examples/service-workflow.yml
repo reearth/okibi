@@ -1,0 +1,94 @@
+# What a service repository adds to use okibi.
+#
+# Copy into .github/workflows/ alongside whatever already deploys the service.
+# Two things have to be in the repository for this to work: okibi.epochs.json,
+# which the service also builds its cache keys from, and okibi.manifest.json,
+# which is what okibi is allowed to know about the service.
+
+name: Warm
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # On a pull request nothing is warmed. The estimate is posted, and that on
+  # its own is the point: a commit that moves one epoch string has a price,
+  # and a reviewer can now see it next to the diff.
+  estimate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2 # the previous commit's epochs, to diff against
+
+      - name: Fetch the digests
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.OKIBI_R2_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.OKIBI_ACCOUNT_ID }}
+        run: |
+          mkdir -p digests
+          for day in $(seq 1 7); do
+            date=$(date -u -d "-$day day" +%Y-%m-%d)
+            npx --yes wrangler@4 r2 object get "okibi/digests/$date.jsonl" \
+              --file "digests/$date.jsonl" --remote || true
+          done
+
+      - uses: reearth/okibi/actions/plan@v1
+        with:
+          manifests: okibi.manifest.json
+          digests: digests/
+
+  # After a deploy the same plan is derived and then run. Warming is a GET to
+  # the service's own on-demand path, so nothing here needs to know how a tile
+  # is made.
+  warm:
+    if: github.event_name == 'push'
+    needs: [] # put your deploy job here
+    runs-on: ubuntu-latest
+    # Warming is not part of shipping. If it fails, the tiles are generated on
+    # demand exactly as they would have been.
+    continue-on-error: true
+    concurrency:
+      # A second deploy makes the first deploy's plan obsolete: it warms an
+      # epoch that is no longer current.
+      group: okibi-warm-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Fetch the digests
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.OKIBI_R2_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.OKIBI_ACCOUNT_ID }}
+        run: |
+          mkdir -p digests
+          for day in $(seq 1 7); do
+            date=$(date -u -d "-$day day" +%Y-%m-%d)
+            npx --yes wrangler@4 r2 object get "okibi/digests/$date.jsonl" \
+              --file "digests/$date.jsonl" --remote || true
+          done
+
+      - uses: reearth/okibi/actions/plan@v1
+        id: plan
+        with:
+          manifests: okibi.manifest.json
+          digests: digests/
+          comment: "false"
+          # Warming the tiles people ask for in the morning, before morning.
+          deadline: ${{ github.event.repository.pushed_at }}
+
+      # actions/warm does not exist yet; until it does, this is what it will do.
+      - name: Warm
+        if: steps.plan.outputs.plan != '' && steps.plan.outputs.mode == 'run'
+        run: |
+          for plan in ${{ steps.plan.outputs.plan }}/*.json; do
+            okibi warm "$plan" --manifests okibi.manifest.json
+          done

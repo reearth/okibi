@@ -1,0 +1,157 @@
+name: okibi plan
+description: >
+  Derive a warm plan from a change to okibi.epochs.json, and say what it costs.
+
+# The trigger is a deploy, because cache keys are compiled into these services
+# and a deploy is the only thing that moves them. On a pull request nothing is
+# warmed and the estimate is posted instead — which is the whole point: a
+# commit that changes one epoch string has a price, and putting it next to the
+# diff is what lets a reviewer ask whether it was necessary.
+
+inputs:
+  manifests:
+    description: The service manifest, or a directory of them.
+    required: true
+  digests:
+    description: A directory of demand digests, already fetched.
+    required: true
+  epochs:
+    description: The service's okibi.epochs.json.
+    default: okibi.epochs.json
+  pricing:
+    description: The pricing table to cost the plan with.
+    default: pricing/cloudflare-2026-08.json
+  deadline:
+    description: When the warming should be finished by, as RFC 3339.
+    required: false
+  budget-usd:
+    description: Stop planning once it would cost this much.
+    required: false
+  coverage:
+    description: Stop planning once this much of the demand is covered.
+    required: false
+  comment:
+    description: Post the estimate as a pull request comment.
+    default: "true"
+  okibi-ref:
+    description: Which version of okibi to build.
+    default: main
+  github-token:
+    description: The token the comment is posted with.
+    default: ${{ github.token }}
+
+outputs:
+  plan:
+    description: Path to the plan, or empty when no epoch moved.
+    value: ${{ steps.plan.outputs.plan }}
+  mode:
+    description: run or enqueue, by whether the plan fits in a job.
+    value: ${{ steps.plan.outputs.mode }}
+
+runs:
+  using: composite
+  steps:
+    # okibi is not published anywhere yet, so it is built from source. When
+    # there is a release this becomes a download, and the cache below stops
+    # being what keeps this step from taking minutes.
+    - uses: actions/checkout@v5
+      with:
+        repository: reearth/okibi
+        ref: ${{ inputs.okibi-ref }}
+        path: .okibi-src
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: .okibi-src
+    - name: Build okibi
+      shell: bash
+      run: cargo build --release -p okibi-cli --manifest-path .okibi-src/Cargo.toml
+
+    # The previous commit's epochs file is what the current one is a change
+    # from, so the checkout that called this needs fetch-depth: 2.
+    - name: Read what the epochs were
+      shell: bash
+      run: |
+        git show HEAD^:${{ inputs.epochs }} > "$RUNNER_TEMP/epochs-before.json" 2>/dev/null \
+          || cp "${{ inputs.epochs }}" "$RUNNER_TEMP/epochs-before.json"
+
+    - name: Plan
+      id: plan
+      shell: bash
+      env:
+        OKIBI: .okibi-src/target/release/okibi
+      run: |
+        set -euo pipefail
+
+        "$OKIBI" invalidation \
+          --before "$RUNNER_TEMP/epochs-before.json" \
+          --after "${{ inputs.epochs }}" \
+          --occurred-at "$(git show -s --format=%cI HEAD)" \
+          ${{ inputs.deadline && format('--deadline {0}', inputs.deadline) || '' }} \
+          --out "$RUNNER_TEMP/okibi-events/"
+
+        # No epoch moved, so nothing died and there is nothing to say.
+        if [ ! -d "$RUNNER_TEMP/okibi-events" ]; then
+          echo "plan=" >> "$GITHUB_OUTPUT"
+          echo "mode=run" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        mkdir -p "$RUNNER_TEMP/okibi-plans"
+        : > "$RUNNER_TEMP/okibi-report.md"
+
+        for event in "$RUNNER_TEMP"/okibi-events/*.json; do
+          name="$(basename "$event" .json)"
+          plan="$RUNNER_TEMP/okibi-plans/$name.json"
+
+          "$OKIBI" plan \
+            --digests "${{ inputs.digests }}" \
+            --invalidation "$event" \
+            --manifests "${{ inputs.manifests }}" \
+            --pricing "${{ inputs.pricing }}" \
+            --epochs "${{ inputs.epochs }}" \
+            ${{ inputs.budget-usd && format('--budget-usd {0}', inputs.budget-usd) || '' }} \
+            ${{ inputs.coverage && format('--coverage {0}', inputs.coverage) || '' }} \
+            --out "$plan"
+
+          "$OKIBI" report "$plan" --invalidation "$event" >> "$RUNNER_TEMP/okibi-report.md"
+          printf '\n' >> "$RUNNER_TEMP/okibi-report.md"
+        done
+
+        echo "plan=$RUNNER_TEMP/okibi-plans" >> "$GITHUB_OUTPUT"
+
+        # A plan longer than a job may last cannot be run inside one.
+        if grep -q "goes to the queue" "$RUNNER_TEMP/okibi-report.md"; then
+          echo "mode=enqueue" >> "$GITHUB_OUTPUT"
+        else
+          echo "mode=run" >> "$GITHUB_OUTPUT"
+        fi
+
+    # The plan is the artifact the estimate was read off, and keeping it is
+    # what makes the estimate checkable afterwards rather than a screenshot.
+    - uses: actions/upload-artifact@v4
+      if: steps.plan.outputs.plan != ''
+      with:
+        name: okibi-plan
+        path: ${{ steps.plan.outputs.plan }}
+
+    - name: Say what it costs
+      if: inputs.comment == 'true' && github.event_name == 'pull_request' && steps.plan.outputs.plan != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        set -euo pipefail
+
+        # Edit the comment from last time rather than adding another one under
+        # it: a pull request that is pushed to five times should carry one
+        # current estimate, not five stale ones.
+        existing=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.number }}/comments" \
+          --jq 'map(select(.body | startswith("<!-- okibi:plan -->"))) | .[0].id // empty')
+
+        if [ -n "$existing" ]; then
+          gh api --method PATCH "repos/${{ github.repository }}/issues/comments/$existing" \
+            -F body=@"$RUNNER_TEMP/okibi-report.md" > /dev/null
+        else
+          gh pr comment "${{ github.event.number }}" --body-file "$RUNNER_TEMP/okibi-report.md"
+        fi
