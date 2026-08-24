@@ -24,6 +24,13 @@ jobs:
     # service is added to one and not the other.
     name: Aggregate yesterday
     runs-on: ubuntu-latest
+
+    # This schedule is the one place where the tool repository doubles as an
+    # installation. Nothing installation-specific is committed — the account
+    # and the tokens are variables and secrets — but the schedule itself is,
+    # so a fork inherits a cron with nothing behind it. Skipping rather than
+    # failing means a fork gets silence instead of a daily red cross.
+    if: vars.OKIBI_ACCOUNT_ID != ''
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
