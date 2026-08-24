@@ -41,7 +41,7 @@ jobs:
           mkdir -p digests
           for day in $(seq 1 7); do
             date=$(date -u -d "-$day day" +%Y-%m-%d)
-            npx --yes wrangler@4 r2 object get "okibi/digests/$date.jsonl" \
+            npx --yes wrangler@4 r2 object get "reearth-papers/okibi/digests/$date.jsonl" \
               --file "digests/$date.jsonl" --remote || true
           done
 
@@ -78,7 +78,7 @@ jobs:
           mkdir -p digests
           for day in $(seq 1 7); do
             date=$(date -u -d "-$day day" +%Y-%m-%d)
-            npx --yes wrangler@4 r2 object get "okibi/digests/$date.jsonl" \
+            npx --yes wrangler@4 r2 object get "reearth-papers/okibi/digests/$date.jsonl" \
               --file "digests/$date.jsonl" --remote || true
           done
 
@@ -125,7 +125,7 @@ jobs:
           mkdir -p digests
           for day in $(seq 1 7); do
             date=$(date -u -d "-$day day" +%Y-%m-%d)
-            npx --yes wrangler@4 r2 object get "okibi/digests/$date.jsonl" \
+            npx --yes wrangler@4 r2 object get "reearth-papers/okibi/digests/$date.jsonl" \
               --file "digests/$date.jsonl" --remote || true
           done
 
@@ -135,6 +135,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.OKIBI_ACCOUNT_ID }}
         with:
           service: papers
+          state-bucket: reearth-papers
           epochs-url: https://papers.reearth.land/okibi/epochs.json
           manifests: okibi.manifest.json
           digests: digests/

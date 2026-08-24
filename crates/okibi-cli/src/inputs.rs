@@ -25,13 +25,15 @@ pub struct EpochsFile {
 }
 
 impl EpochsFile {
-    pub fn epoch_for(&self, tileset: &str) -> Result<Epoch> {
-        self.tilesets.get(tileset).cloned().ok_or_else(|| {
-            anyhow::anyhow!(
-                "okibi.epochs.json has no epochs for {tileset:?} (it has {})",
-                self.tilesets.keys().cloned().collect::<Vec<_>>().join(", ")
-            )
-        })
+    /// The epochs recorded for a tileset, or none.
+    ///
+    /// Absent is not an error here. A service whose versions live in a cache
+    /// key rather than in a URL has nothing for this file to hold, and
+    /// demanding some anyway would be demanding a file for something nothing
+    /// reads. A template that does ask for an epoch is refused by the planner,
+    /// which is where the asking is visible.
+    pub fn epoch_for(&self, tileset: &str) -> Epoch {
+        self.tilesets.get(tileset).cloned().unwrap_or_default()
     }
 }
 
@@ -145,7 +147,7 @@ pub fn load(paths: Paths<'_>) -> Result<Loaded> {
     let pricing: PricingTable = read_json(paths.pricing)?;
 
     let epochs: EpochsFile = read_json(paths.epochs)?;
-    let epoch = epochs.epoch_for(&invalidation.tileset)?;
+    let epoch = epochs.epoch_for(&invalidation.tileset);
 
     let mut manifest_hashes = BTreeMap::new();
     if paths.manifests.is_dir() {
@@ -200,16 +202,16 @@ mod tests {
         );
     }
 
+    /// A service whose versions live in a cache key has nothing to put here,
+    /// and asking it for a file anyway would be asking for something nothing
+    /// reads.
     #[test]
-    fn an_unknown_tileset_says_which_ones_there_are() {
+    fn a_tileset_with_no_recorded_epochs_has_none() {
         let epochs = EpochsFile {
             service: "papers".into(),
-            tilesets: [("style-aoi-04".to_string(), Epoch::default())]
-                .into_iter()
-                .collect(),
+            tilesets: Default::default(),
         };
 
-        let error = epochs.epoch_for("style-aoi-99").unwrap_err().to_string();
-        assert!(error.contains("style-aoi-04"), "{error}");
+        assert_eq!(epochs.epoch_for("style-aoi-04"), Epoch::default());
     }
 }

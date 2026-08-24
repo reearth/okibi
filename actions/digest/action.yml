@@ -23,11 +23,16 @@ inputs:
     description: Token that may write the bucket. Defaults to api-token.
     required: false
   bucket:
-    description: R2 bucket the digests are kept in.
-    default: okibi
+    description: >
+      R2 bucket the digests are kept in. The service's own cache bucket is the
+      natural home: a digest of one service's demand is that service's, and it
+      already has somewhere durable to put things.
+    required: true
   prefix:
-    description: Key prefix within the bucket.
-    default: digests
+    description: >
+      Key prefix within the bucket. Under `okibi/` by default, so that what
+      okibi writes cannot be mistaken for a cached tile.
+    default: okibi/digests
   config:
     description: >
       Path to a digest config. Optional: with no file, every service in the

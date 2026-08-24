@@ -15,7 +15,12 @@
 import { assembleDigest, digestQueries } from "@reearth/okibi";
 
 interface Env {
-  /** Bucket the digests are kept in, past Analytics Engine's three months. */
+  /**
+   * Bucket the digests are kept in, past Analytics Engine's three months.
+   *
+   * The service's own cache bucket is the natural home: a digest of one
+   * service's demand is that service's, and the bucket already exists.
+   */
   OKIBI_DIGESTS: R2Bucket;
   /** Token that may read the Analytics Engine SQL API. */
   OKIBI_CF_API_TOKEN: string;
@@ -42,7 +47,7 @@ export async function takeDigest(env: Env, date: string): Promise<void> {
   }
 
   const jsonl = records.map((record) => JSON.stringify(record)).join("\n") + "\n";
-  await env.OKIBI_DIGESTS.put(`digests/${env.OKIBI_SERVICE}/${date}.jsonl`, jsonl);
+  await env.OKIBI_DIGESTS.put(`okibi/digests/${date}.jsonl`, jsonl);
 
   console.log(`okibi: ${records.length} cells for ${date}`);
 }
@@ -91,7 +96,7 @@ export default {
 //
 //   [[r2_buckets]]
 //   binding = "OKIBI_DIGESTS"
-//   bucket_name = "okibi"
+//   bucket_name = "reearth-papers"   # this service's own cache bucket
 //
 //   [vars]
 //   OKIBI_SERVICE = "papers"

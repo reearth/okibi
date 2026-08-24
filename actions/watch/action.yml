@@ -29,8 +29,11 @@ inputs:
     description: A directory of demand digests, already fetched.
     required: true
   state-bucket:
-    description: R2 bucket holding what was reported last time.
-    default: okibi
+    description: >
+      R2 bucket holding what this service reported last time. Its own cache
+      bucket, alongside its digests; everything okibi writes lives under an
+      `okibi/` prefix so it cannot be mistaken for a cached tile.
+    required: true
   pricing:
     description: The pricing table to cost the plan with.
     default: pricing/cloudflare-2026-08.json
@@ -93,10 +96,10 @@ runs:
         # No previous state means this has never run. Nothing was cached under
         # epochs nobody recorded, so there is nothing to warm — only something
         # to remember for next time.
-        if ! npx --yes wrangler@4 r2 object get "$BUCKET/epochs/$SERVICE.json" \
+        if ! npx --yes wrangler@4 r2 object get "$BUCKET/okibi/epochs.json" \
              --file ".okibi/state/last.json" --remote 2>/dev/null; then
           echo "okibi: nothing recorded for $SERVICE yet, so recording without planning"
-          npx --yes wrangler@4 r2 object put "$BUCKET/epochs/$SERVICE.json" \
+          npx --yes wrangler@4 r2 object put "$BUCKET/okibi/epochs.json" \
             --file ".okibi/state/now.json" --remote
           echo "planned=0" >> "$GITHUB_OUTPUT"
           exit 0
@@ -139,7 +142,7 @@ runs:
             # it will be checked against arrives in tomorrow's digest. Keeping
             # only one of the pair makes neither worth much.
             npx --yes wrangler@4 r2 object put \
-              "$BUCKET/plans/$now-$SERVICE-$tileset.json" --file "$plan" --remote
+              "$BUCKET/okibi/plans/$now-$tileset.json" --file "$plan" --remote
 
             planned=$((planned + 1))
           done
@@ -148,7 +151,7 @@ runs:
         # Only now. Recording the change as seen before it has been handed
         # over would mean a failure here is never retried: nothing would ever
         # warm what was already marked as noticed.
-        npx --yes wrangler@4 r2 object put "$BUCKET/epochs/$SERVICE.json" \
+        npx --yes wrangler@4 r2 object put "$BUCKET/okibi/epochs.json" \
           --file ".okibi/state/now.json" --remote
 
         echo "planned=$planned" >> "$GITHUB_OUTPUT"

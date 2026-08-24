@@ -10,8 +10,9 @@ Four, one per moment something has to happen.
 | [`watch`](watch) | on a schedule, per service | notice a service that went cold with nothing pushed, and warm it |
 
 All four are triggered from the repository of the service being warmed, which
-is where the thing knows its own name. okibi schedules nothing and keeps no
-list of who exists.
+is where the thing knows its own name, and each keeps its digests in that
+service's own cache bucket. okibi schedules nothing, keeps no list of who
+exists, and owns no storage.
 
 `digest` has a second route that does not involve CI at all: a service that
 runs a Worker can take its own digest from a cron trigger, using the same

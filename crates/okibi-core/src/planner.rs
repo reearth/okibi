@@ -74,6 +74,16 @@ pub enum PlanError {
     NoManifest { service: String },
     /// A timestamp that could not be read.
     BadTime { field: &'static str, value: String },
+    /// A URL template asks for an epoch that was not supplied.
+    ///
+    /// Better to refuse than to fetch `…?e={epoch.param}` a few thousand
+    /// times: every one of those is a real request to a real origin, and they
+    /// would all miss, and the tiles they were meant to warm would still be
+    /// cold at the end of it.
+    EpochMissing {
+        axis: &'static str,
+        template: String,
+    },
 }
 
 impl std::fmt::Display for PlanError {
@@ -85,6 +95,10 @@ impl std::fmt::Display for PlanError {
             PlanError::BadTime { field, value } => {
                 write!(f, "{field} is not a timestamp: {value:?}")
             }
+            PlanError::EpochMissing { axis, template } => write!(
+                f,
+                "{template:?} needs {{epoch.{axis}}} and no {axis} epoch was given"
+            ),
         }
     }
 }
@@ -161,6 +175,10 @@ pub fn plan(input: &PlanInput<'_>) -> Result<WarmPlan, PlanError> {
         .ok_or_else(|| PlanError::NoManifest {
             service: event.service.clone(),
         })?;
+
+    // Before anything is planned, because the alternative is a plan full of
+    // URLs with a placeholder still in them.
+    check_epochs(manifest, &input.epoch)?;
 
     let cells = collect_cells(input, manifest);
     let demand_in_scope: f64 = cells.values().map(|cell| cell.freq).sum();
@@ -257,6 +275,31 @@ pub fn plan(input: &PlanInput<'_>) -> Result<WarmPlan, PlanError> {
         stats,
         estimate,
     })
+}
+
+/// A template may only ask for epochs that were supplied.
+///
+/// Most services do not ask at all — their version lives in a cache key rather
+/// than in a URL — and requiring epochs from them would be requiring a file
+/// for something nothing reads. The ones that do ask have to be given them.
+fn check_epochs(manifest: &ServiceManifest, epoch: &Epoch) -> Result<(), PlanError> {
+    let axes = [
+        ("source", epoch.source.as_str()),
+        ("algo", epoch.algo.as_str()),
+        ("param", epoch.param.as_str()),
+    ];
+
+    for template in std::iter::once(&manifest.url_template).chain(manifest.meta_urls.values()) {
+        for (axis, value) in axes {
+            if value.is_empty() && template.contains(&format!("{{epoch.{axis}}}")) {
+                return Err(PlanError::EpochMissing {
+                    axis,
+                    template: template.clone(),
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Combine the windows of every cell the invalidation touched.

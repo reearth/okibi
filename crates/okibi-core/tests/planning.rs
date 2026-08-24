@@ -506,3 +506,94 @@ fn a_real_measurement_is_still_used() {
     let plan = Case::new(vec![quick]).plan();
     assert_eq!(plan.entries[0].expected_gen_ms, 12.0);
 }
+
+/// Most services keep their version in a cache key rather than in a URL, so
+/// there is nothing for an epochs file to hold and no reason to demand one.
+#[test]
+fn a_template_that_asks_for_no_epoch_needs_none() {
+    let mut case = Case::new(vec![cell(
+        "13300211",
+        "2026-08-23/P1D",
+        1820.0,
+        &[("13300211231022", "14/14552/6451", 1820.0)],
+    )]);
+    case.manifests[0].url_template = "https://papers.reearth.land/t/{tileset}/{id}".into();
+    case.manifests[0].meta_urls.clear();
+
+    let plan = okibi_core::plan(&PlanInput {
+        digests: &case.digests,
+        invalidation: &case.event,
+        manifests: &case.manifests,
+        pricing: &case.pricing,
+        epoch: Epoch::default(),
+        sources: Sources::default(),
+        options: PlanOptions::default(),
+    })
+    .expect("no epoch is asked for, so none is needed");
+
+    assert_eq!(
+        plan.entries[0].url,
+        "https://papers.reearth.land/t/style-aoi-04/14/14552/6451"
+    );
+}
+
+/// One that does ask is refused rather than fetched with the placeholder
+/// still in it — a few thousand real requests that would all miss, leaving
+/// the tiles they were meant to warm exactly as cold.
+#[test]
+fn a_template_that_asks_for_an_epoch_must_be_given_it() {
+    let case = Case::new(vec![cell(
+        "13300211",
+        "2026-08-23/P1D",
+        1820.0,
+        &[("13300211231022", "14/14552/6451", 1820.0)],
+    )]);
+
+    let error = okibi_core::plan(&PlanInput {
+        digests: &case.digests,
+        invalidation: &case.event,
+        manifests: &case.manifests,
+        pricing: &case.pricing,
+        // The fixture's template ends in `?e={epoch.param}`.
+        epoch: Epoch::default(),
+        sources: Sources::default(),
+        options: PlanOptions::default(),
+    })
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        okibi_core::PlanError::EpochMissing {
+            axis: "param",
+            template: PAPERS_URL.to_string(),
+        }
+    );
+}
+
+/// Including one only a metadata URL asks for, since a plan puts those first
+/// and a broken one is everybody's first paint.
+#[test]
+fn a_metadata_template_is_checked_too() {
+    let mut case = Case::new(vec![metadata_cell(9120.0)]);
+    case.manifests[0].url_template = "https://papers.reearth.land/t/{tileset}/{id}".into();
+    case.manifests[0].meta_urls.insert(
+        "tileset".into(),
+        "https://p/{tileset}/{epoch.algo}/meta.json".into(),
+    );
+
+    let error = okibi_core::plan(&PlanInput {
+        digests: &case.digests,
+        invalidation: &case.event,
+        manifests: &case.manifests,
+        pricing: &case.pricing,
+        epoch: Epoch::default(),
+        sources: Sources::default(),
+        options: PlanOptions::default(),
+    })
+    .unwrap_err();
+
+    assert!(matches!(
+        error,
+        okibi_core::PlanError::EpochMissing { axis: "algo", .. }
+    ));
+}
