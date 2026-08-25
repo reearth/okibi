@@ -10,6 +10,7 @@
 // planner's own projection compiled to wasm — see `spec/tile-demand.md`.
 
 export type {
+  CacheLayer,
   CacheStatus,
   Epoch,
   Origin,

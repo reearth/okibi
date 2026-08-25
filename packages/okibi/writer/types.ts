@@ -5,6 +5,17 @@ export type TileKind = "content" | "tileset" | "subtree" | "meta";
 export type CacheStatus = "hit" | "miss" | "swr" | "error";
 
 /**
+ * Which layer answered a hit.
+ *
+ * `edge` and `store` are the registered names; a service with a layer that is
+ * neither uses its own. Not what decides whether a tile is worth warming — a
+ * hit is somebody wanting the tile whichever layer had it — but what decides
+ * what serving one costs: an edge hit is free and a read from an object store
+ * is a priced operation.
+ */
+export type CacheLayer = "edge" | "store" | (string & {});
+
+/**
  * Where a request came from. `warm` is okibi asking for a tile itself, and is
  * excluded from demand so that warming does not make its own choices look
  * popular next time.
@@ -43,6 +54,8 @@ export interface TileDemandEvent {
    */
   qk?: string;
   cacheStatus: CacheStatus;
+  /** Which layer answered, when one did. Absent on a miss. */
+  cacheLayer?: CacheLayer;
   epoch: Epoch;
   fmt: string;
   colo?: string;

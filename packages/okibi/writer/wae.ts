@@ -48,6 +48,11 @@ export function check(event: TileDemandEvent): void {
       throw new NotWritable(`content event ${event.id} has no z`);
     }
   }
+  if (event.cacheStatus === "miss" && event.cacheLayer) {
+    throw new NotWritable(
+      `${event.id} missed, so no layer answered it — got ${event.cacheLayer}`,
+    );
+  }
   if (event.cacheStatus === "hit" && event.genMs !== 0) {
     throw new NotWritable(
       `hit for ${event.id} claims ${event.genMs}ms of generation`,
@@ -86,6 +91,7 @@ export function toDataPoint(event: TileDemandEvent): DataPoint {
       event.fmt,
       event.colo ?? "",
       event.origin,
+      event.cacheLayer ?? "",
     ],
     doubles: [
       1,

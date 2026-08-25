@@ -20,6 +20,7 @@ Examples: [`examples/`](examples/).
 | `tile.qk` | string | when `content` | The **normalised spatial key**: the tile's centre point projected to a Web Mercator quadkey. May be empty when `kind != content` |
 | `tile.qk8` | string | when `content` | `tile.qk` truncated to 8 characters, or the whole thing if it is shorter. For aggregation only |
 | `tile.cache.status` | string | ✔ | `hit`, `miss`, `swr` or `error` |
+| `tile.cache.layer` | string | — | Which layer answered a hit: `edge`, `store`, or a name the service registers. Absent on a miss |
 | `tile.epoch.source` | string | one of | The source-data part of the cache key, **byte-identical to what is in it** |
 | `tile.epoch.algo` | string | the three | The algorithm part. Likewise |
 | `tile.epoch.param` | string | required | The parameter part. Likewise |
@@ -40,6 +41,17 @@ coordinates mean different ground in each, so they cannot be aggregated
 together. A centre point projected into one quadkey space can. Projecting is the service's job,
 though it need not write the projection itself — [`okibi-qk`](../crates/okibi-qk)
 exists to be used here.
+
+`tile.cache.layer` is not what decides whether a tile is worth warming — a hit
+is somebody wanting the tile whichever layer had it — but it is what decides
+what serving one costs. An edge hit costs nothing; a hit from an object store
+is a read operation with a price on it. Without the distinction, the bill for
+serving is a range rather than a number, and okibi's whole disposition is that
+a cost you cannot see is a cost nobody decides about.
+
+`edge` and `store` are registered here. A service with a layer that is neither
+names it, and a reader that does not recognise a name should count it as
+neither free nor priced rather than guess.
 
 `tile.gen_ms` is a lower bound, not a stopwatch. A runtime may freeze its
 clocks between I/O — Workers do, to blunt Spectre — so a generator that is
@@ -157,5 +169,5 @@ A Terrain miss, quantized mesh, TMS-Geographic at z14
 ```
 
 The other examples are a Buildings tile with its dependent-call time broken
-out, a Buildings `tileset.json` request carrying no coordinates at all, and a
-Papers tile that okibi warmed itself.
+out, a Buildings `tileset.json` request that carries no coordinates at all and
+was answered by an edge cache, and a Papers tile that okibi warmed itself.

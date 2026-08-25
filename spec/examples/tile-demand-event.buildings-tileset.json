@@ -4,6 +4,7 @@
   "tile.kind": "tileset",
   "tile.id": "tileset.json",
   "tile.cache.status": "hit",
+  "tile.cache.layer": "edge",
   "tile.epoch.source": "overture-2026-07",
   "tile.epoch.algo": "bldg-1.4.0",
   "tile.epoch.param": "lod-default",

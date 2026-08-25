@@ -24,9 +24,16 @@ const papers: TileDemandEvent = {
 
 describe("the wae-1 column order", () => {
   it("puts every attribute where the binding says", () => {
-    const point = toDataPoint({ ...papers, colo: "NRT", genDepMs: 120 });
+    const point = toDataPoint({
+      ...papers,
+      colo: "NRT",
+      genDepMs: 120,
+      cacheStatus: "hit",
+      genMs: 0,
+      cacheLayer: "edge",
+    });
 
-    // blob1..blob13, in the order spec/bindings/wae-1.md gives them.
+    // blob1..blob14, in the order spec/bindings/wae-1.md gives them.
     expect(point.blobs).toEqual([
       "papers",
       "style-aoi-04",
@@ -34,17 +41,18 @@ describe("the wae-1 column order", () => {
       "14/14552/6451",
       "13300211231022",
       "13300211",
-      "miss",
+      "hit",
       "osm-2026-08-18",
       "ezu-0.7.1",
       "style-aoi-04@r13",
       "png",
       "NRT",
       "organic",
+      "edge",
     ]);
 
     // double1..double5.
-    expect(point.doubles).toEqual([1, 34120, 120, 88231, 14]);
+    expect(point.doubles).toEqual([1, 0, 120, 88231, 14]);
 
     // The index is the service alone, which is the unit sampling is applied
     // within.
@@ -124,5 +132,33 @@ describe("as many epochs as the key has", () => {
     expect(() =>
       check({ ...papers, epoch: { source: "", algo: "", param: "" } }),
     ).toThrow(NotWritable);
+  });
+});
+
+/// A hit is a hit for warming, whichever layer had it. It is not a hit for
+/// billing: an edge hit costs nothing and a read from an object store is a
+/// priced operation, and without the distinction the cost of serving is a
+/// range rather than a number.
+describe("which layer answered", () => {
+  it("goes in the column after origin", () => {
+    const point = toDataPoint({
+      ...papers,
+      cacheStatus: "hit",
+      genMs: 0,
+      cacheLayer: "store",
+    });
+
+    expect(point.blobs[12]).toBe("organic");
+    expect(point.blobs[13]).toBe("store");
+  });
+
+  it("is an empty column when nothing says", () => {
+    expect(toDataPoint(papers).blobs[13]).toBe("");
+  });
+
+  it("refuses a miss that claims a layer answered it", () => {
+    expect(() => check({ ...papers, cacheStatus: "miss", cacheLayer: "edge" })).toThrow(
+      NotWritable,
+    );
   });
 });

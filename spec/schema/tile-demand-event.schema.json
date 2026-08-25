@@ -41,6 +41,11 @@
         "error"
       ]
     },
+    "tile.cache.layer": {
+      "description": "Which layer answered a hit. `edge` and `store` are registered; a service with another names it. Absent on a miss, which was answered by generating.",
+      "type": "string",
+      "minLength": 1
+    },
     "tile.epoch.source": {
       "type": "string"
     },
@@ -176,6 +181,26 @@
           "tile.gen_ms": {
             "const": 0
           }
+        }
+      }
+    },
+    {
+      "$comment": "A miss was answered by generating, so no layer answered it.",
+      "if": {
+        "properties": {
+          "tile.cache.status": {
+            "const": "miss"
+          }
+        },
+        "required": [
+          "tile.cache.status"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "tile.cache.layer"
+          ]
         }
       }
     }
