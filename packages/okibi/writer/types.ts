@@ -7,13 +7,16 @@ export type CacheStatus = "hit" | "miss" | "swr" | "error";
 /**
  * Which layer answered a hit.
  *
- * `edge` and `store` are the registered names; a service with a layer that is
- * neither uses its own. Not what decides whether a tile is worth warming — a
- * hit is somebody wanting the tile whichever layer had it — but what decides
- * what serving one costs: an edge hit is free and a read from an object store
- * is a priced operation.
+ * `client` is a revalidation answered `304`: the requester already had the
+ * bytes and nothing was read anywhere. `edge` is a cache in front of the
+ * service. `store` is an object store, and is the one that costs a read. A
+ * service with a layer that is none of those uses its own name.
+ *
+ * Not what decides whether a tile is worth warming — a hit is somebody
+ * wanting the tile whichever layer had it — but what decides what serving one
+ * costs.
  */
-export type CacheLayer = "edge" | "store" | (string & {});
+export type CacheLayer = "client" | "edge" | "store" | (string & {});
 
 /**
  * Where a request came from. `warm` is okibi asking for a tile itself, and is

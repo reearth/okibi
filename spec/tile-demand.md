@@ -20,7 +20,7 @@ Examples: [`examples/`](examples/).
 | `tile.qk` | string | when `content` | The **normalised spatial key**: the tile's centre point projected to a Web Mercator quadkey. May be empty when `kind != content` |
 | `tile.qk8` | string | when `content` | `tile.qk` truncated to 8 characters, or the whole thing if it is shorter. For aggregation only |
 | `tile.cache.status` | string | ✔ | `hit`, `miss`, `swr` or `error` |
-| `tile.cache.layer` | string | — | Which layer answered a hit: `edge`, `store`, or a name the service registers. Absent on a miss |
+| `tile.cache.layer` | string | — | Which layer answered a hit: `client`, `edge`, `store`, or a name the service registers. Absent on a miss |
 | `tile.epoch.source` | string | one of | The source-data part of the cache key, **byte-identical to what is in it** |
 | `tile.epoch.algo` | string | the three | The algorithm part. Likewise |
 | `tile.epoch.param` | string | required | The parameter part. Likewise |
@@ -49,9 +49,14 @@ is a read operation with a price on it. Without the distinction, the bill for
 serving is a range rather than a number, and okibi's whole disposition is that
 a cost you cannot see is a cost nobody decides about.
 
-`edge` and `store` are registered here. A service with a layer that is neither
-names it, and a reader that does not recognise a name should count it as
-neither free nor priced rather than guess.
+Three names are registered. `client` is a revalidation answered `304` — the
+requester already had the bytes and only asked whether they were still
+current, so nothing was read anywhere. `edge` is a cache in front of the
+service. `store` is an object store, and is the one that costs a read.
+
+A service with a layer that is none of those names it, and a reader that does
+not recognise a name should count it as neither free nor priced rather than
+guess.
 
 `tile.gen_ms` is a lower bound, not a stopwatch. A runtime may freeze its
 clocks between I/O — Workers do, to blunt Spectre — so a generator that is
