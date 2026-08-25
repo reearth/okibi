@@ -52,21 +52,27 @@ export interface TileDemandEvent {
    * planner uses; the arithmetic is easy to reimplement and hard to notice
    * being subtly wrong.
    */
-  qk?: string;
+  qk?: string | undefined;
   cacheStatus: CacheStatus;
-  /** Which layer answered, when one did. Absent on a miss. */
-  cacheLayer?: CacheLayer;
+  /**
+   * Which layer answered, when one did. Absent on a miss.
+   *
+   * Explicitly `| undefined` so that a caller under
+   * `exactOptionalPropertyTypes` can pass the variable it already has rather
+   * than build two different objects around whether it is set.
+   */
+  cacheLayer?: CacheLayer | undefined;
   epoch: Epoch;
   fmt: string;
-  colo?: string;
+  colo?: string | undefined;
   origin: Origin;
   /** Milliseconds spent generating. Zero on a hit. */
   genMs: number;
   /** The part of `genMs` that was spent calling another service. */
-  genDepMs?: number;
+  genDepMs?: number | undefined;
   bytes: number;
   /** The native zoom. Required for `content`, and comparable only within one service. */
-  z?: number;
+  z?: number | undefined;
 }
 
 /** What a service passes in: everything the writer cannot know for it. */
