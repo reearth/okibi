@@ -81,10 +81,10 @@ pub fn cells(config: &DigestQuery, window: &Window) -> String {
   blob2 AS tileset,
   blob3 AS kind,
   blob6 AS qk8,
-  SUM(IF(blob13 = 'organic', double1 * _sample_interval, 0)) AS req,
-  SUM(IF(blob13 = 'organic' AND blob7 = 'miss', double1 * _sample_interval, 0)) AS miss,
-  quantileWeighted(0.5)(double2, _sample_interval) AS p50_gen_ms,
-  quantileWeighted(0.95)(double2, _sample_interval) AS p95_gen_ms,
+  SUM(IF(blob13 = 'organic', double1 * _sample_interval, 0.0)) AS req,
+  SUM(IF(blob13 = 'organic' AND blob7 = 'miss', double1 * _sample_interval, 0.0)) AS miss,
+  quantileWeighted(0.5)(double2, IF(blob7 = 'miss', _sample_interval, 0)) AS p50_gen_ms,
+  quantileWeighted(0.95)(double2, IF(blob7 = 'miss', _sample_interval, 0)) AS p95_gen_ms,
   SUM(double2 * _sample_interval) AS sum_gen_ms,
   SUM(double4 * _sample_interval) AS bytes,
   SUM(double4 * _sample_interval) / SUM(double1 * _sample_interval) AS avg_bytes,
@@ -106,9 +106,17 @@ FORMAT JSON",
 ///
 /// Cells are rolled up from these rather than the other way round, and the
 /// limit is a plain one rather than a per-cell one so that the query stays
-/// portable SQL. What that costs is that the coldest cells may run out of rows
-/// before they are described — which the caller reports rather than hides.
-pub fn top_tiles(config: &DigestQuery, window: &Window) -> String {
+/// portable SQL: neither `LIMIT n BY` nor a window function is available to
+/// take a top slice per cell. What that costs is that the coldest cells may
+/// run out of rows before they are described — which the caller reports
+/// rather than hides.
+///
+/// The limit is spent per service rather than across all of them, which is
+/// why this takes one. A single query ordered by demand gives every row to
+/// the busiest service, and the services that most need warming are the slow
+/// ones, not the busy ones — the busiest service would be the only one
+/// planned, and no error would say so.
+pub fn top_tiles(config: &DigestQuery, window: &Window, service: &str) -> String {
     let (from, to) = window.bounds();
     format!(
         "SELECT
@@ -122,7 +130,8 @@ pub fn top_tiles(config: &DigestQuery, window: &Window) -> String {
 FROM {dataset}
 WHERE timestamp >= toDateTime({from})
   AND timestamp < toDateTime({to})
-  AND blob13 = 'organic'{services}
+  AND blob13 = 'organic'
+  AND index1 = {service}
 GROUP BY service, tileset, kind, qk8, qk, id
 ORDER BY req DESC
 LIMIT {rows}
@@ -130,7 +139,7 @@ FORMAT JSON",
         dataset = config.dataset,
         from = quote(&from),
         to = quote(&to),
-        services = service_filter(config),
+        service = quote(service),
         rows = config.top_rows,
     )
 }
@@ -166,7 +175,7 @@ mod tests {
     #[test]
     fn demand_counts_organic_requests_only() {
         assert!(cells(&config(), &window()).contains("IF(blob13 = 'organic'"));
-        assert!(top_tiles(&config(), &window()).contains("blob13 = 'organic'"));
+        assert!(top_tiles(&config(), &window(), "papers").contains("blob13 = 'organic'"));
     }
 
     /// Generation time is a property of generating, not of who asked, so warm
@@ -214,6 +223,32 @@ mod tests {
         let mut config = config();
         config.services.clear();
         assert!(!cells(&config, &window()).contains("index1"));
+    }
+
+    /// The limit is a row count, and one query ordered by demand gives every
+    /// row to the busiest service. Warming is for the slow services, not the
+    /// busy ones, so spending the limit per service is what makes them
+    /// plannable at all — and nothing errors when it is spent wrongly.
+    #[test]
+    fn a_top_tiles_query_is_for_one_service() {
+        let sql = top_tiles(&config(), &window(), "papers");
+        assert!(sql.contains("AND index1 = 'papers'"), "{sql}");
+        assert!(!sql.contains("index1 IN"), "{sql}");
+    }
+
+    /// A hit generated nothing. Weighting hits at zero is how they leave the
+    /// quantile, there being no conditional aggregate to say it with: a cell
+    /// that mostly hits would otherwise report a median generation of zero,
+    /// which reads as free rather than as unmeasured.
+    #[test]
+    fn generation_quantiles_are_taken_over_misses_only() {
+        let sql = cells(&config(), &window());
+        for line in sql.lines().filter(|line| line.contains("quantileWeighted")) {
+            assert!(
+                line.contains("IF(blob7 = 'miss', _sample_interval, 0)"),
+                "{line}"
+            );
+        }
     }
 
     #[test]

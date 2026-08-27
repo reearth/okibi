@@ -34,7 +34,8 @@ JSONL or Parquet. One record per `(service, tileset, kind, qk8, window)`.
 | `window` | An ISO 8601 interval |
 | `req` | Total requests, sampling weight restored, **counting `organic` only** |
 | `miss` | Of those, how many missed |
-| `p50_gen_ms`, `p95_gen_ms`, `sum_gen_ms` | Generation time. May include `warm` requests |
+| `p50_gen_ms`, `p95_gen_ms` | Generation time **over misses only**. A hit generated nothing, and a cell that mostly hits would otherwise have a median of zero. May include `warm` requests |
+| `sum_gen_ms` | Total generation time, over every request |
 | `avg_bytes`, `bytes` | Response sizes |
 | `tiles_observed` | Distinct tiles actually seen in this cell. The denominator every estimate is built on |
 | `sample_interval_max` | How many events one row stood for, at worst. `1` means nothing here was sampled |

@@ -93,8 +93,23 @@ fn to_js(error: okibi_qk::Error) -> JsError {
 /// is not, because two rules of the binding live in the text — every frequency
 /// carries the sampling weight, and demand counts organic requests only —
 /// and neither fails visibly when it is left out.
+///
+/// `topTiles` is for one service, because its row limit is spent per service:
+/// ordered by demand across all of them, the busiest service takes every row
+/// and the rest are planned from nothing. `service` may be left out when the
+/// config names exactly one, which is the shape a service running its own
+/// cron is in.
+///
+/// Where neither says which service, `topTiles` is `null` and only the cells
+/// query comes back. That is the aggregating caller's order of work: the
+/// cells query is what says which services wrote anything, and the top-tiles
+/// query is asked once per service it named.
 #[wasm_bindgen(js_name = digestQueries)]
-pub fn digest_queries(config: JsValue, date: &str) -> Result<JsValue, JsError> {
+pub fn digest_queries(
+    config: JsValue,
+    date: &str,
+    service: Option<String>,
+) -> Result<JsValue, JsError> {
     let config: DigestQuery = if config.is_undefined() || config.is_null() {
         DigestQuery::default()
     } else {
@@ -102,9 +117,15 @@ pub fn digest_queries(config: JsValue, date: &str) -> Result<JsValue, JsError> {
     };
     let window = Window::parse(date).map_err(|e| JsError::new(&e.to_string()))?;
 
+    let service = match (service, config.services.as_slice()) {
+        (Some(service), _) => Some(service),
+        (None, [only]) => Some(only.clone()),
+        (None, _) => None,
+    };
+
     let queries = Queries {
         cells: query::cells(&config, &window),
-        top_tiles: query::top_tiles(&config, &window),
+        top_tiles: service.map(|service| query::top_tiles(&config, &window, &service)),
     };
     serde_wasm_bindgen::to_value(&queries).map_err(|e| JsError::new(&e.to_string()))
 }
@@ -113,7 +134,7 @@ pub fn digest_queries(config: JsValue, date: &str) -> Result<JsValue, JsError> {
 #[serde(rename_all = "camelCase")]
 struct Queries {
     cells: String,
-    top_tiles: String,
+    top_tiles: Option<String>,
 }
 
 /// Roll query rows up into digest records.

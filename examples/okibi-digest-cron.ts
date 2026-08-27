@@ -31,6 +31,9 @@ interface Env {
 
 export async function takeDigest(env: Env, date: string): Promise<void> {
   const config = { services: [env.OKIBI_SERVICE] };
+  // The top-tiles query is per service, and this config names one, so it is
+  // the one that comes back. An aggregator reading several would run the
+  // cells query first and ask for top tiles once per service it found.
   const { cells, topTiles } = digestQueries(config, date);
 
   const [cellRows, tileRows] = await Promise.all([

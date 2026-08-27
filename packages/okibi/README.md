@@ -81,6 +81,12 @@ const { cells, topTiles } = digestQueries({ services: ["papers"] }, "2026-08-23"
 const { records, skipped } = assembleDigest(cellRows, tileRows, "2026-08-23", 20);
 ```
 
+`topTiles` is for one service. Its row limit is a row count, and one query
+ordered by demand spends all of it on whichever service is busiest — leaving
+the slow services, the ones warming is for, with nothing to plan from. Name
+the service in the config as above, pass it as a third argument, or take
+`topTiles` as `null` and ask once per service the cells query turned up.
+
 The same aggregation `okibi digest` runs, for a service that would rather take
 its own from a Worker cron than from a scheduled CI job. Here for the same
 reason the projection is: which cell an unplaced request belongs to, how a tie

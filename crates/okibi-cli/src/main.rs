@@ -14,7 +14,7 @@ mod warm;
 mod window;
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     io::Write,
     path::{Path, PathBuf},
 };
@@ -252,21 +252,44 @@ async fn run_digest(
     };
 
     let cells_sql = query::cells(&config.query, &window);
-    let tiles_sql = query::top_tiles(&config.query, &window);
 
     if print_sql {
-        println!("-- cells\n{cells_sql}\n\n-- top tiles\n{tiles_sql}");
+        // The top-tiles query is run once per service, and which services
+        // exist is an answer the cells query returns rather than a list kept
+        // here. With nothing to read, the placeholder stands in for the name
+        // that would be filled in.
+        let named = if config.query.services.is_empty() {
+            vec!["<service>".to_string()]
+        } else {
+            config.query.services.clone()
+        };
+        println!("-- cells\n{cells_sql}");
+        for service in named {
+            let sql = query::top_tiles(&config.query, &window, &service);
+            println!("\n-- top tiles: {service}\n{sql}");
+        }
         return Ok(());
     }
 
     let account = wae::account_from_env(config.account_id.as_deref())?;
     let client = wae::Client::new(&account, wae::token_from_env()?)?;
-    let (cells, tiles) = tokio::try_join!(
-        client.query::<aggregate::CellRow>(&cells_sql),
-        client.query::<aggregate::TileRow>(&tiles_sql),
-    )?;
+    let cells = client.query::<aggregate::CellRow>(&cells_sql).await?;
 
-    let asked_for = tiles.len();
+    // One top-tiles query per service. The limit is a row count, and a single
+    // query spends all of it on whichever service is busiest — which is not
+    // the one that most needs warming.
+    let services: BTreeSet<String> = cells.iter().map(|cell| cell.service.clone()).collect();
+    let mut tiles: Vec<aggregate::TileRow> = Vec::new();
+    let mut truncated: Vec<String> = Vec::new();
+    for service in &services {
+        let sql = query::top_tiles(&config.query, &window, service);
+        let rows = client.query::<aggregate::TileRow>(&sql).await?;
+        if rows.len() >= config.query.top_rows {
+            truncated.push(service.clone());
+        }
+        tiles.extend(rows);
+    }
+
     let (records, skipped) = aggregate::assemble(cells, tiles, &window, config.query.top_n);
 
     let mut lines = String::new();
@@ -276,7 +299,7 @@ async fn run_digest(
     }
     write_out(&lines, out, &format!("{}.jsonl", window.date()))?;
 
-    report_digest(&skipped, asked_for, &config, records.len());
+    report_digest(&skipped, &truncated, &config, records.len());
     Ok(())
 }
 
@@ -509,7 +532,12 @@ fn duration(seconds: f64) -> String {
 
 /// Say what was left out. A digest that silently described less than it was
 /// asked to would read as a quiet day rather than as a truncated query.
-fn report_digest(skipped: &aggregate::Skipped, tile_rows: usize, config: &Config, records: usize) {
+fn report_digest(
+    skipped: &aggregate::Skipped,
+    truncated: &[String],
+    config: &Config,
+    records: usize,
+) {
     if skipped.unknown_kind > 0 {
         eprintln!(
             "okibi: {} cells named a kind this version does not have",
@@ -528,11 +556,14 @@ fn report_digest(skipped: &aggregate::Skipped, tile_rows: usize, config: &Config
             skipped.cells_without_top
         );
     }
-    if tile_rows >= config.query.top_rows {
+    // Per service, because that is how the limit is spent. A total across
+    // services would say nothing about which of them was cut short.
+    if !truncated.is_empty() {
         eprintln!(
-            "okibi: the top-tiles query hit its {} row limit, so the coldest cells \
-             may be described less finely than the rest",
-            config.query.top_rows
+            "okibi: the top-tiles query hit its {} row limit for {}, so the coldest \
+             cells there may be described less finely than the rest",
+            config.query.top_rows,
+            truncated.join(", ")
         );
     }
 }
