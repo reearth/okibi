@@ -63,3 +63,22 @@ A message is retried once and then dropped to the dead-letter queue. A tile
 that will not generate twice gets generated on demand instead, which is where
 it started, and holding the queue for it would cost the tiles behind it for
 nothing.
+
+## What it leaves behind
+
+Two lines per batch in the Worker's logs, plus one for each plan accepted:
+
+```
+okibi: queued a plan     { queued: 1135, services: {…}, lanes: {…}, warmSecret: "set" }
+okibi: warmed a batch    { warmed: 18, failed: 2, services: {…}, statuses: { "200": 18, "503": 2 } }
+okibi: did not warm      { url: …, service: …, status: 503, attempt: 1 }
+```
+
+What warmed is recorded twice over — the services write it themselves, as
+demand carrying `origin: "warm"` — so `blob13 = 'warm'` in the dataset answers
+"what did okibi warm" for as long as the events are kept.
+
+What is **only** here is what did not warm. A request that never reached a
+handler wrote no event anywhere, so a tile okibi gave up on would otherwise
+leave no trace at all: not in the ledger, which never saw it, and not in the
+plan, which says what was meant to happen rather than what did.

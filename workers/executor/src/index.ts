@@ -12,6 +12,7 @@ import {
   NotAPlan,
   type WarmMessage,
   messagesFor,
+  summarise,
   warmBatch,
 } from "./plan.js";
 
@@ -65,16 +66,29 @@ export default {
       );
     }
 
+    // A plan arriving is the start of hours of work that nothing else
+    // announces. Without this line, the only evidence a plan was ever
+    // accepted is the queue draining.
+    console.log("okibi: queued a plan", {
+      queued: messages.length,
+      services: countBy(messages, (message) => message.service),
+      lanes: countBy(messages, (message) => message.lane),
+      warmSecret: env.OKIBI_WARM_SECRET ? "set" : "MISSING",
+    });
+
     return Response.json({ queued: messages.length });
   },
 
   async queue(batch: MessageBatch<WarmMessage>, env: Env): Promise<void> {
     const limits = readLimits(env.OKIBI_LIMITS);
-    const outcomes = await warmBatch(
-      batch.messages.map((message) => message.body),
-      limits,
-      env.OKIBI_WARM_SECRET,
-    );
+    const bodies = batch.messages.map((message) => message.body);
+    const outcomes = await warmBatch(bodies, limits, env.OKIBI_WARM_SECRET);
+
+    // What warmed is also written by the services themselves, as demand with
+    // `origin: "warm"`. What is only here is what did *not* warm: a request
+    // that never reached a handler wrote no event anywhere, so a tile okibi
+    // gave up on would otherwise leave no trace at all.
+    console.log("okibi: warmed a batch", summarise(bodies, outcomes));
 
     outcomes.forEach((outcome, i) => {
       const message = batch.messages[i];
@@ -85,12 +99,33 @@ export default {
       // not worth blocking the rest of the queue for.
       if (outcome.ok) {
         message.ack();
-      } else {
-        message.retry();
+        return;
       }
+
+      // Named individually, because the summary says how many failed and this
+      // says which — and a plan whose failures are all one origin is a
+      // different problem from one whose failures are scattered.
+      console.warn("okibi: did not warm", {
+        url: outcome.url,
+        service: message.body.service,
+        status: outcome.status,
+        error: outcome.error,
+        attempt: message.attempts,
+      });
+      message.retry();
     });
   },
 };
+
+/** How many of each key there are, for a log line. */
+function countBy<T>(items: T[], key: (item: T) => string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of items) {
+    const k = key(item);
+    counts[k] = (counts[k] ?? 0) + 1;
+  }
+  return counts;
+}
 
 /** Constant-time enough for a shared secret in a header. */
 export function authorised(request: Request, token: string): boolean {

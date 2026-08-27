@@ -7,6 +7,7 @@ import {
   type WarmMessage,
   concurrencyFor,
   messagesFor,
+  summarise,
   warmBatch,
 } from "../src/plan.js";
 
@@ -203,5 +204,56 @@ describe("the plan endpoint", () => {
     expect(authorised(request("wrong!"), "secret")).toBe(false);
     expect(authorised(request(), "secret")).toBe(false);
     expect(authorised(request("secret"), "")).toBe(false);
+  });
+});
+
+describe("summarising a batch", () => {
+  const message = (url: string, service: string): WarmMessage => ({
+    url,
+    service,
+    lane: "warm",
+  });
+
+  /// The summary is what a log line carries, and a log that reads as a
+  /// successful run of something that failed is worse than no log.
+  it("counts what warmed and what did not, per service", () => {
+    const messages = [
+      message("https://a.test/1", "papers"),
+      message("https://a.test/2", "papers"),
+      message("https://b.test/1", "terrain"),
+    ];
+    const summary = summarise(messages, [
+      { url: "https://a.test/1", ok: true, status: 200 },
+      { url: "https://a.test/2", ok: false, status: 503 },
+      { url: "https://b.test/1", ok: true, status: 200 },
+    ]);
+
+    expect(summary.warmed).toBe(2);
+    expect(summary.failed).toBe(1);
+    expect(summary.services).toEqual({
+      papers: { warmed: 1, failed: 1 },
+      terrain: { warmed: 1, failed: 0 },
+    });
+    expect(summary.statuses).toEqual({ "200": 2, "503": 1 });
+  });
+
+  /// A request that never got a status is not a request that got a zero.
+  it("keeps a request that never reached an origin apart from one that did", () => {
+    const summary = summarise(
+      [message("https://a.test/1", "papers")],
+      [{ url: "https://a.test/1", ok: false, error: "network" }],
+    );
+
+    expect(summary.statuses).toEqual({ error: 1 });
+    expect(summary.failed).toBe(1);
+  });
+
+  it("says nothing happened when nothing did", () => {
+    expect(summarise([], [])).toEqual({
+      warmed: 0,
+      failed: 0,
+      services: {},
+      statuses: {},
+    });
   });
 });

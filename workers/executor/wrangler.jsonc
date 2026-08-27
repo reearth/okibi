@@ -29,7 +29,7 @@
   "vars": {
     // How many of each service's tiles to have in flight within one batch.
     // Should match the concurrency_limit in each service's manifest.
-    "OKIBI_LIMITS": "{\"papers\":4,\"terrain\":8,\"buildings\":8,\"*\":4}"
+    "OKIBI_LIMITS": "{\"papers\":4,\"terrain\":8,\"buildings\":4,\"*\":4}"
   }
 
   // OKIBI_EXECUTOR_TOKEN is a secret:

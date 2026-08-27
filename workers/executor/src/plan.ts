@@ -138,6 +138,54 @@ async function warmOne(
   }
 }
 
+/** What one batch did, in the shape a log line should carry. */
+export interface BatchSummary {
+  warmed: number;
+  failed: number;
+  /** Per service, because a plan can span origins and one of them failing is
+   *  a different thing from all of them failing. */
+  services: Record<string, { warmed: number; failed: number }>;
+  /** HTTP status, or `error` for a request that never got one. */
+  statuses: Record<string, number>;
+}
+
+/**
+ * Count a batch's outcomes.
+ *
+ * Separate from doing the work so that what gets logged can be asserted on.
+ * A summary that drifted from the outcomes would be a log that reads as a
+ * successful run of something that failed.
+ */
+export function summarise(
+  messages: WarmMessage[],
+  outcomes: Outcome[],
+): BatchSummary {
+  const summary: BatchSummary = {
+    warmed: 0,
+    failed: 0,
+    services: {},
+    statuses: {},
+  };
+
+  outcomes.forEach((outcome, i) => {
+    const service = messages[i]?.service ?? "unknown";
+    const per = (summary.services[service] ??= { warmed: 0, failed: 0 });
+
+    if (outcome.ok) {
+      summary.warmed++;
+      per.warmed++;
+    } else {
+      summary.failed++;
+      per.failed++;
+    }
+
+    const key = outcome.status !== undefined ? String(outcome.status) : "error";
+    summary.statuses[key] = (summary.statuses[key] ?? 0) + 1;
+  });
+
+  return summary;
+}
+
 /** Run `work` over `items`, `width` at a time, keeping the input order. */
 async function pool<T, R>(
   items: T[],
