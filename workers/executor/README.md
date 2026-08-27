@@ -57,6 +57,17 @@ wrangler secret put OKIBI_WARM_SECRET
 wrangler deploy
 ```
 
+The two secrets are set once and survive every deploy after it, which is why
+they are not in a workflow: a second copy of a shared secret is a second place
+it can be read back out of.
+
+The deploy itself is not by hand for this repository's own installation —
+[`deploy-executor.yml`](../../.github/workflows/deploy-executor.yml) runs it
+when anything under `workers/executor/` reaches `main`. A Worker deployed by
+hand is a Worker that eventually runs whatever was last on somebody's laptop.
+A fork's executor is a fork's business; the workflow checks which repository
+it is in rather than failing a fork's push for want of a secret.
+
 ## Failures
 
 A message is retried once and then dropped to the dead-letter queue. A tile
