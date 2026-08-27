@@ -319,10 +319,15 @@ describe("asking whether a plan's URLs exist", () => {
   });
 
   it("marks every ask as okibi's own", async () => {
-    const fetcher = vi.fn(async () => new Response(null, { status: 200 }));
-    await sample(messages(3), "shh", fetcher as unknown as typeof fetch);
+    const sent: Record<string, string>[] = [];
+    const fetcher = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+      sent.push((init?.headers ?? {}) as Record<string, string>);
+      return new Response(null, { status: 200 });
+    }) as unknown as typeof fetch;
 
-    const init = fetcher.mock.calls[0]?.[1] as RequestInit;
-    expect((init.headers as Record<string, string>)[WARM_HEADER]).toBe("shh");
+    await sample(messages(3), "shh", fetcher);
+
+    expect(sent).toHaveLength(3);
+    for (const headers of sent) expect(headers[WARM_HEADER]).toBe("shh");
   });
 });
