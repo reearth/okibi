@@ -217,6 +217,7 @@ mod tests {
             cost: Cost {
                 default_gen_ms: 1.0,
                 default_bytes: 1.0,
+                warm_above_gen_ms: None,
                 concurrency_limit: 7,
                 rate_per_s: 3.0,
                 billing: None,

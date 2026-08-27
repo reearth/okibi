@@ -25,6 +25,7 @@ fn manifest(zoom: ZoomSemantics) -> ServiceManifest {
         cost: Cost {
             default_gen_ms: 30_000.0,
             default_bytes: 90_000.0,
+            warm_above_gen_ms: None,
             concurrency_limit: 4,
             rate_per_s: 2.0,
             billing: Some(Billing {
@@ -568,6 +569,54 @@ fn a_template_that_asks_for_an_epoch_must_be_given_it() {
             template: PAPERS_URL.to_string(),
         }
     );
+}
+
+/// A tile fast enough that nobody waits for it is not warmed at any budget.
+///
+/// Different from ranking low. A plan is already ordered by demand times cost,
+/// so a fast tile sorts to the back and goes first when a budget bites — but a
+/// bigger budget reaches it. The floor says a bigger budget should not: the
+/// wait it removes is one nobody can feel, and the request is real.
+#[test]
+fn a_tile_nobody_waits_for_is_not_warmed_at_any_budget() {
+    let mut fast = cell(
+        "13300211",
+        "2026-08-23/P1D",
+        9_000_000.0,
+        &[("13300211231022", "14/14552/6451", 9_000_000.0)],
+    );
+    fast.p50_gen_ms = Some(80.0);
+
+    let mut case = Case::new(vec![fast]);
+    case.manifests[0].cost.warm_above_gen_ms = Some(400.0);
+
+    let plan = case.plan();
+
+    assert!(plan.entries.is_empty(), "{:?}", plan.entries);
+    assert_eq!(plan.stats.too_fast, 1);
+}
+
+/// The floor is about being fast, and an unmeasured cell is not fast — it is
+/// unseen. It carries the manifest's fallback, and excluding it because the
+/// fallback is small would exclude it for never having been described.
+#[test]
+fn a_cell_with_no_measurement_is_not_called_fast() {
+    let mut unmeasured = cell(
+        "13300211",
+        "2026-08-23/P1D",
+        1820.0,
+        &[("13300211231022", "14/14552/6451", 1820.0)],
+    );
+    unmeasured.p50_gen_ms = None;
+
+    let mut case = Case::new(vec![unmeasured]);
+    case.manifests[0].cost.default_gen_ms = 100.0;
+    case.manifests[0].cost.warm_above_gen_ms = Some(400.0);
+
+    let plan = case.plan();
+
+    assert_eq!(plan.stats.too_fast, 0);
+    assert_eq!(plan.entries.len(), 1, "planned on the fallback, as before");
 }
 
 /// A document warming cannot help is left out of the plan and counted.

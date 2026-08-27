@@ -51,6 +51,19 @@ pub struct Cost {
     /// demand has a real number instead.
     pub default_gen_ms: f64,
     pub default_bytes: f64,
+    /// Below this measured generation time, do not warm at all.
+    ///
+    /// Not the same as ranking low. A plan is already ordered by demand times
+    /// cost, so a fast tile sorts to the back and is dropped first when a
+    /// budget bites — but a bigger budget would reach it. This says a bigger
+    /// budget should not: the wait it removes is one nobody can feel, and the
+    /// request that removes it is real.
+    ///
+    /// Applies to measurements only. A cell the digest never described falls
+    /// back to `default_gen_ms`, and a fallback below the floor would exclude
+    /// it for being unmeasured rather than for being fast.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warm_above_gen_ms: Option<f64>,
     /// What the origin will tolerate, and what turns a plan into a duration.
     pub concurrency_limit: u32,
     pub rate_per_s: f64,
@@ -198,6 +211,7 @@ mod tests {
             cost: Cost {
                 default_gen_ms: 30000.0,
                 default_bytes: 90000.0,
+                warm_above_gen_ms: None,
                 concurrency_limit: 4,
                 rate_per_s: 2.0,
                 billing: None,

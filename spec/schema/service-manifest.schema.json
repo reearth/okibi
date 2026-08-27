@@ -73,6 +73,11 @@
             "per_gen"
           ],
           "additionalProperties": false
+        },
+        "warm_above_gen_ms": {
+          "description": "Below this measured generation time, do not warm at all. Not the same as ranking low: a plan already orders by demand times cost, so a fast tile sorts to the back and a bigger budget would still reach it. This says it should not. Applies to measurements only — a cell carrying the fallback is unmeasured, not fast.",
+          "type": "number",
+          "minimum": 0
         }
       },
       "required": [

@@ -198,6 +198,7 @@ pub fn plan(input: &PlanInput<'_>) -> Result<WarmPlan, PlanError> {
 
     let expanded = expand(input, manifest, &cells)?;
     let unwarmable = expanded.unwarmable;
+    let too_fast = expanded.too_fast;
     let mut candidates = expanded.candidates;
     promote_ancestors(manifest, &mut candidates);
     sort(&mut candidates);
@@ -247,6 +248,7 @@ pub fn plan(input: &PlanInput<'_>) -> Result<WarmPlan, PlanError> {
         sum_expected_gen_ms: kept.iter().map(|c| c.gen_ms).sum(),
         coverage_of_demand: ratio(covered, demand_in_scope),
         unwarmable,
+        too_fast,
     };
 
     let estimate = estimate::estimate(estimate::Inputs {
@@ -392,10 +394,20 @@ fn expand(
     let event = input.invalidation;
     let mut candidates = Vec::new();
     let mut unwarmable = 0usize;
+    let mut too_fast = 0usize;
 
     for ((kind, _qk8), cell) in cells {
         let gen_ms = measured_or(cell.gen_ms, manifest.cost.default_gen_ms);
         let bytes = measured_or(cell.bytes, manifest.cost.default_bytes);
+
+        // A tile nobody waits for is a tile warming cannot help, whatever the
+        // budget. Only a measurement can say so: an unmeasured cell is
+        // carrying the manifest's fallback, and excluding it because the
+        // fallback is small would be excluding it for never having been seen.
+        if below_floor(manifest, cell.gen_ms) {
+            too_fast += cell.tiles.len();
+            continue;
+        }
 
         for ((qk, id), req) in &cell.tiles {
             let (rank, url) = if kind.is_placed() {
@@ -443,6 +455,7 @@ fn expand(
     Ok(Expanded {
         candidates,
         unwarmable,
+        too_fast,
     })
 }
 
@@ -450,6 +463,15 @@ fn expand(
 struct Expanded {
     candidates: Vec<Candidate>,
     unwarmable: usize,
+    too_fast: usize,
+}
+
+/// Whether a measured generation time is below what the service warms at all.
+fn below_floor(manifest: &ServiceManifest, measured: Option<f64>) -> bool {
+    match (manifest.cost.warm_above_gen_ms, measured) {
+        (Some(floor), Some(gen_ms)) if gen_ms > 0.0 => gen_ms < floor,
+        _ => false,
+    }
 }
 
 fn kind_name(kind: Kind) -> &'static str {

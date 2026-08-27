@@ -115,6 +115,11 @@
           "description": "Documents the service asked okibi not to warm. Recorded so that a plan smaller than the demand it was derived from says why.",
           "type": "integer",
           "minimum": 0
+        },
+        "too_fast": {
+          "description": "Tiles left out because they generate faster than the service warms at.",
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [

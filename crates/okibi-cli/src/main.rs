@@ -351,6 +351,12 @@ async fn run_plan(args: &PlanArgs, out: &str, options: PlanOptions) -> Result<()
             plan.stats.unwarmable
         );
     }
+    if plan.stats.too_fast > 0 {
+        eprintln!(
+            "okibi: {} tile(s) generate faster than this service warms at, left out",
+            plan.stats.too_fast
+        );
+    }
 
     if let Some(size) = args.verify {
         return report_verified(

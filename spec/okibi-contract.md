@@ -67,6 +67,18 @@ meaning, so they are spelled differently in the manifest.
 `default_gen_ms` and `default_bytes` are fallbacks for cells with no
 measurement. Anything with observed demand has real numbers in the digest.
 
+`warm_above_gen_ms` is optional, and is the service saying that below some
+generation time warming is not worth doing at all. That is a different claim
+from ranking low: a plan is already ordered by demand times cost, so a fast
+tile sorts to the back and is the first thing a budget drops — but a larger
+budget reaches it. This says a larger budget should not, because the wait it
+removes is one nobody can feel and the request that removes it is real.
+
+It applies to measurements only. A cell the digest never described is carrying
+`default_gen_ms`, and dropping it for a small fallback would be dropping it
+for never having been seen rather than for being fast. What it leaves out is
+counted in `stats.too_fast`.
+
 `concurrency_limit` and `rate_per_s` bound what the origin will tolerate. They
 are also what turns a plan into a duration, which is what decides whether it
 fits in a CI job.

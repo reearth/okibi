@@ -118,6 +118,7 @@ mod tests {
                 sum_expected_gen_ms: 0.0,
                 coverage_of_demand: coverage,
                 unwarmable: 0,
+                too_fast: 0,
             },
             entries,
             estimate: Estimate {

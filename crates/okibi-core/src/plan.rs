@@ -67,6 +67,10 @@ pub struct Stats {
     /// was derived from says why, rather than reading as a quiet day.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub unwarmable: usize,
+    /// Tiles left out because they generate faster than the service warms at.
+    /// Counted for the same reason: a plan smaller than its demand says why.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub too_fast: usize,
 }
 
 fn is_zero(n: &usize) -> bool {
