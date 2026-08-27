@@ -7,6 +7,7 @@ import {
   type WarmMessage,
   concurrencyFor,
   messagesFor,
+  sample,
   summarise,
   warmBatch,
 } from "../src/plan.js";
@@ -255,5 +256,73 @@ describe("summarising a batch", () => {
       services: {},
       statuses: {},
     });
+  });
+});
+
+describe("asking whether a plan's URLs exist", () => {
+  const messages = (n: number): WarmMessage[] =>
+    Array.from({ length: n }, (_, i) => ({
+      url: `https://a.test/${i}`,
+      service: "papers",
+      lane: "warm" as const,
+    }));
+
+  const answering = (status: number) =>
+    vi.fn(async () => new Response(null, { status }));
+
+  it("names the URLs that are not there", async () => {
+    const { wrong, answered } = await sample(messages(30), undefined, answering(404));
+
+    expect(answered).toBe(3);
+    expect(wrong).toHaveLength(3);
+    expect(wrong[0]).toContain("404");
+  });
+
+  it("says nothing is wrong when the origin answers", async () => {
+    const { wrong, answered } = await sample(messages(30), undefined, answering(200));
+
+    expect(wrong).toEqual([]);
+    expect(answered).toBe(3);
+  });
+
+  /// A check that cannot fail is worse than no check, because it reads as one
+  /// that passed. A Worker asking for its own hostname gets 522 every time.
+  it("counts a 5xx apart from an answer", async () => {
+    const { wrong, answered } = await sample(messages(30), undefined, answering(522));
+
+    expect(wrong).toEqual([]);
+    expect(answered).toBe(0);
+  });
+
+  it("survives an origin that will not answer at all", async () => {
+    const refuses = vi.fn(async () => {
+      throw new Error("no route to host");
+    });
+    const { wrong, answered } = await sample(messages(9), undefined, refuses);
+
+    expect(wrong).toEqual([]);
+    expect(answered).toBe(0);
+  });
+
+  /// The head of a plan is its hottest cell. A template that works there can
+  /// still be wrong further down.
+  it("asks about more than the front of the plan", async () => {
+    const asked: string[] = [];
+    const fetcher = vi.fn(async (url: RequestInfo | URL) => {
+      asked.push(String(url));
+      return new Response(null, { status: 200 });
+    });
+    await sample(messages(90), undefined, fetcher as unknown as typeof fetch);
+
+    expect(asked).toHaveLength(3);
+    expect(asked[2]).toContain("/60");
+  });
+
+  it("marks every ask as okibi's own", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 200 }));
+    await sample(messages(3), "shh", fetcher as unknown as typeof fetch);
+
+    const init = fetcher.mock.calls[0]?.[1] as RequestInit;
+    expect((init.headers as Record<string, string>)[WARM_HEADER]).toBe("shh");
   });
 });

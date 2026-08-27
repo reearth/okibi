@@ -12,6 +12,7 @@ import {
   NotAPlan,
   type WarmMessage,
   messagesFor,
+  sample,
   summarise,
   warmBatch,
 } from "./plan.js";
@@ -60,6 +61,23 @@ export default {
       return new Response(`${why}\n`, { status: 400 });
     }
 
+    // Asked before anything is queued. A plan whose template, ids or epochs
+    // do not rebuild the service's URLs is wrong in every entry, and draining
+    // it spends a real request on each of them to learn what three would have
+    // said. Refused rather than reported, because by the time the batch
+    // summaries say `404` the requests have already been made.
+    const checked = await sample(messages, env.OKIBI_WARM_SECRET);
+    if (checked.answered > 0 && checked.wrong.length === checked.answered) {
+      console.warn("okibi: refused a plan whose URLs do not exist", {
+        entries: messages.length,
+        wrong: checked.wrong,
+      });
+      return new Response(
+        `${checked.wrong.length} of ${checked.wrong.length} sampled URLs do not exist\n`,
+        { status: 422 },
+      );
+    }
+
     for (let i = 0; i < messages.length; i += BATCH) {
       await env.WARM_QUEUE.sendBatch(
         messages.slice(i, i + BATCH).map((body) => ({ body })),
@@ -74,6 +92,9 @@ export default {
       services: countBy(messages, (message) => message.service),
       lanes: countBy(messages, (message) => message.lane),
       warmSecret: env.OKIBI_WARM_SECRET ? "set" : "MISSING",
+      // Nothing answered means nothing was checked, which is not the same as
+      // a plan that passed. Said out loud so it cannot be read as one.
+      sampled: checked.answered > 0 ? `${checked.answered} answered` : "unverifiable",
     });
 
     return Response.json({ queued: messages.length });

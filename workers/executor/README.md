@@ -36,6 +36,21 @@ A plan whose version this executor does not read is refused rather than
 interpreted. A plan whose fields had moved would be warmed wrong, and warming
 the wrong thing looks exactly like warming the right thing.
 
+So is a plan whose URLs are not there. Three of them are asked about before
+anything is queued, and a plan where every one that answered said `404` comes
+back `422` with nothing queued: a template, an id or an epoch that does not
+rebuild a service's URLs is wrong in every entry, and draining it would spend
+a real request on each of them to learn what three had already said.
+
+This is where that check belongs. A service planning its own warming cannot
+make it — a Worker asking for its own hostname goes out to the edge and comes
+back 522 — and by the time a batch summary reports `404` the requests have
+been made. This is a different Worker on a different name, and it asks first.
+
+A sample where nothing answered is not a plan that passed; it is a plan
+nothing could check, and the queued line says `unverifiable` rather than
+letting a check that could not fail read as one that did.
+
 `GET /health` answers `ok`.
 
 ## Configuration

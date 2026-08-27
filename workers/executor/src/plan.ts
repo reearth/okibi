@@ -138,6 +138,62 @@ async function warmOne(
   }
 }
 
+/** How many of a plan's URLs to ask about before queueing the rest. */
+export const SAMPLE = 3;
+
+export interface Sampled {
+  /** URLs the origin said are not there. The plan's fault. */
+  wrong: string[];
+  /** Asks that came back as an answer about the URL at all. */
+  answered: number;
+}
+
+/**
+ * Ask the origins whether a few of a plan's URLs exist.
+ *
+ * Here, on the way in, rather than left to the draining: a plan built from a
+ * template, an id or an epoch that does not rebuild the service's URLs is
+ * wrong in every entry, and queueing it spends a real request on each of them
+ * to learn what three would have said.
+ *
+ * Here rather than in the service that made the plan, too. A Worker asking
+ * for its own hostname goes out to the edge and comes back 522, so a service
+ * planning its own warming cannot check its own URLs — this is a different
+ * Worker on a different name, and can.
+ *
+ * Spread through the plan rather than taken from its head: the head is the
+ * hottest cell, and a template that happens to work there can be wrong three
+ * zoom levels down. A 5xx is not an answer about the URL and is counted
+ * apart, because a check that cannot fail is worse than no check — it reads
+ * as one that passed.
+ */
+export async function sample(
+  messages: WarmMessage[],
+  secret: string | undefined,
+  fetcher: typeof fetch = fetch,
+): Promise<Sampled> {
+  const wrong: string[] = [];
+  let answered = 0;
+  const stride = Math.max(1, Math.ceil(messages.length / SAMPLE));
+
+  for (let i = 0; i < messages.length && wrong.length < SAMPLE; i += stride) {
+    const url = messages[i]?.url;
+    if (!url) continue;
+    try {
+      const response = await fetcher(url, {
+        method: "HEAD",
+        headers: secret ? { [WARM_HEADER]: secret } : {},
+      });
+      if (response.status >= 500) continue;
+      answered++;
+      if (response.status >= 400) wrong.push(`${response.status} ${url}`);
+    } catch {
+      // Not an answer about the URL either.
+    }
+  }
+  return { wrong, answered };
+}
+
 /** What one batch did, in the shape a log line should carry. */
 export interface BatchSummary {
   warmed: number;
