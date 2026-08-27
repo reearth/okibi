@@ -2,8 +2,9 @@
 
 Warm the tiles that people actually ask for, after a cache invalidation kills them.
 
-> ⚠️ Early work in progress. Running against live demand, not yet against a
-> real invalidation — see [Status](#status).
+> ⚠️ Early work in progress. Wired end to end and running against live demand;
+> no invalidation has happened yet that somebody did not arrange — see
+> [Status](#status).
 
 ## The problem
 
@@ -59,9 +60,15 @@ free — cache economics become something a reviewer can see.
 | [`crates/okibi-core`](crates/okibi-core) | the planner and the documents it reads |
 | [`crates/okibi-qk`](crates/okibi-qk) | the projection that makes unlike tile schemes comparable |
 | [`crates/okibi-cli`](crates/okibi-cli) | `digest`, `plan`, `warm`, `invalidation`, `report`, `diff`, `explain` |
-| [`packages/okibi`](packages/okibi) | what a service imports: the writer, the projection, the digest |
+| [`packages/okibi`](packages/okibi) | what a service imports: the writer, the projection, the digest, the planner |
 | [`workers/executor`](workers/executor) | drains a plan from a queue, for warming that outlasts a CI job |
 | [`actions/`](actions) | `digest` daily, `plan` on a pull request, `warm` after a deploy, `watch` for what no deploy caused |
+
+A service that runs a Worker can do the daily digest and the watching from its
+own cron instead of from CI, using the same compiled planner. A Cloudflare
+cron does not switch itself off after sixty quiet days, which for a watch is
+the difference between noticing and looking as though there was nothing to
+notice. The actions are for everywhere else.
 
 Warming is hours of waiting on IO. A Worker bills CPU time, so waiting there
 costs almost nothing; a CI job is a rented machine sitting idle, and stops at
@@ -70,32 +77,58 @@ it whenever there is one.
 
 ## Status
 
-All four pieces exist and run: the [specifications](spec/README.md), the
-writer a service calls, the planner, the executor, and the actions that put a
-plan on a pull request and then fetch it.
+Running. Re:Earth Terrain, Buildings and Papers have written tile-demand
+events since 2026-08-24; each takes its own digest from its own Worker cron
+and keeps it in its own bucket; the executor is deployed and drains plans from
+a queue; and Buildings warms from its repository when an epoch moves, while
+Papers watches for the epochs that move without anyone pushing.
 
-Three services write tile-demand events — Re:Earth Terrain, Buildings and
-Papers — and digests have been taken from the live dataset since the events
-started on 2026-08-24. Plans have been derived from those digests and costed;
-`okibi digest --print-sql` still exists to be read before the queries are
-trusted.
+What has not happened is a plan warmed against an invalidation nobody
+arranged. Every one so far has been written by hand to make something run.
 
-Meeting real data cost the queries two corrections that no test here could
-have found, because both are things only Analytics Engine can say. It rejects
-an `IF()` whose two branches are a double and an integer, so the digest failed
-on its first run against a real dataset. And the top-tiles row limit, spent
-across every service at once, went almost entirely to the busiest one: Terrain
-outweighs Papers by two orders of magnitude, so Papers came back with no top
-tiles in any cell and nothing to plan from — silently, and for the service
-that most needs warming. The limit is spent per service now.
+### What meeting real data cost
 
-All three are plannable, and planning them turned up a third silent wrong
-answer: a document with no coordinates — Buildings' root tileset — was given
-the tile URL template, which is built out of coordinates. The plan named a URL
-of the right shape for somewhere that 404s, and put it first, metadata sorting
-ahead of content. That is refused now rather than guessed at.
+Every one of these was a wrong answer that looked exactly like a right one,
+which is the failure this whole design is arranged against — and not one of
+them was found by a test here.
 
-What has not happened is a plan being warmed against a real invalidation.
+Three were in the queries, and only Analytics Engine could say so. It rejects
+an `IF()` whose branches are a double and an integer, so the digest failed on
+its first run. The top-tiles row limit, spent across every service at once,
+went almost entirely to the busiest: Terrain outweighs Papers by two orders of
+magnitude, so Papers came back with no top tiles in any cell and nothing to
+plan from. And the generation quantiles were taken over hits as well as
+misses, so a cell that mostly hits reported a median generation of zero — free
+rather than unmeasured.
+
+Three were in what a plan is built from. A document with no coordinates —
+Buildings' root tileset — was given the tile URL template, which is built out
+of coordinates, and the URL it produced 404s while sorting first. Papers
+reported ids that rebuilt nothing: no format extension, two URL shapes under
+one template, and parameters that live in a query string. And an id built from
+the whole query string let a smoke test's cache-buster split one tile into as
+many ids as anyone cared to invent.
+
+One was in the checking. Papers' watch asks whether a few of its plan's URLs
+exist before handing them over — and a Worker asking for its own hostname goes
+out to the edge and comes back 522, so three timeouts read as three passes and
+569 URLs that every one answered 404 were handed over as verified. A check
+that cannot fail is worse than no check. It is the executor that asks now,
+from a different name, before anything is queued.
+
+`okibi plan --verify` came out of the second group and would have caught all
+of it. The last one is why the executor asks too.
+
+### What the ledger is worth
+
+A demand digest is a lower bound. An event is written by the service, so a
+request the edge answers before the service runs is a request nothing records
+— 62% of Terrain's traffic on 2026-08-26, 22% of Papers', 0.5% of Buildings'.
+What an edge absorbs is what repeats within one colo, which is the head of the
+distribution, so a digest describes demand flatter than it is. See
+[`spec/bindings/wae-1.md`](spec/bindings/wae-1.md) for why that undersells
+warming rather than misdirecting it, and why bypassing the edge would fix the
+ledger by defeating the purpose.
 
 `@reearth/okibi` is published to npm. Nothing is published to crates.io.
 

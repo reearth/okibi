@@ -14,20 +14,30 @@ is where the thing knows its own name, and each keeps its digests in that
 service's own cache bucket. okibi schedules nothing, keeps no list of who
 exists, and owns no storage.
 
-`digest` has a second route that does not involve CI at all: a service that
-runs a Worker can take its own digest from a cron trigger, using the same
-aggregation compiled to wasm —
-[`examples/okibi-digest-cron.ts`](../examples/okibi-digest-cron.ts). Prefer
-that where there is a Worker: a Cloudflare cron does not switch itself off
-after sixty quiet days, and waiting on an HTTP call costs it nothing. This
-action is for everywhere else.
+`digest` and `watch` have a second route that does not involve CI at all: a
+service that runs a Worker can take its own digest and do its own watching
+from a cron trigger, using the same aggregation and the same planner compiled
+to wasm — [`examples/okibi-digest-cron.ts`](../examples/okibi-digest-cron.ts).
+Prefer that where there is a Worker: a Cloudflare cron does not switch itself
+off after sixty quiet days, and waiting on an HTTP call costs it nothing.
+These actions are for everywhere else.
+
+The preference is strongest for `watch`. A digest that stops is a day with no
+file, which is visible; a watch that stops looks exactly like an invalidation
+that never happened, and a snapshot may not move for months.
+
+One thing a Worker cannot do is check its own plan. Asking for its own
+hostname goes out to the edge and comes back `522`, so a service verifying its
+own URLs gets timeouts rather than verdicts — which read as passes unless
+something counts them apart. The executor asks instead, from a different name,
+before it queues anything.
 
 [`examples/service-workflow.yml`](../examples/service-workflow.yml) is what a
 service adds to use `plan`, `warm` and `watch` together.
 
 ## Versions
 
-Reference them by release tag — `reearth/okibi/actions/plan@v0.6.0`.
+Reference them by release tag — `reearth/okibi/actions/plan@v0.8.0`.
 
 The major tag these were meant to be referenced by, `@v1`, does not exist and
 should not be created yet: the release workflow fires on `v*` and would read
