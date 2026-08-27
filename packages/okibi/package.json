@@ -1,6 +1,6 @@
 {
   "name": "@reearth/okibi",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Tile-demand events, quadkey projection and demand digests, for services okibi warms",
   "license": "MIT OR Apache-2.0",
   "repository": {
@@ -55,13 +55,15 @@
       "types": "./workerd/okibi.d.ts",
       "default": "./workerd/okibi.js"
     },
-    "./bundler/okibi_bg.wasm": "./bundler/okibi_bg.wasm"
+    "./bundler/okibi_bg.wasm": "./bundler/okibi_bg.wasm",
+    "./pricing/*": "./pricing/*"
   },
   "files": [
     "bundler",
     "nodejs",
     "workerd",
     "dist",
+    "pricing",
     "README.md",
     "LICENSE-MIT",
     "LICENSE-APACHE"

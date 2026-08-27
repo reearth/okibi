@@ -34,6 +34,14 @@ for target in bundler nodejs; do
   rm -f "$PKG/$target/package.json" "$PKG/$target/.gitignore"
 done
 
+# The pricing tables travel with the package. `plan` needs one, and a service
+# holding its own copy would be costing plans against whatever it copied and
+# whenever it copied it — prices move for the vendor's reasons, and keeping
+# them current is okibi's job rather than each service's.
+rm -rf "$PKG/pricing"
+mkdir -p "$PKG/pricing"
+cp pricing/*.json "$PKG/pricing/"
+
 # The export list is read from the bundler entry rather than written out here,
 # so that adding an export to the crate does not silently fail to reach a
 # Worker.

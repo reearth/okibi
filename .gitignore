@@ -12,6 +12,9 @@ dist/
 packages/okibi/bundler/
 packages/okibi/nodejs/
 packages/okibi/workerd/
+# Staged from pricing/ by build-wasm.sh, so the package carries a price list
+# without a second copy of one living in the repository.
+packages/okibi/pricing/
 
 # Staged into each package at publish time, from the copies at the root.
 packages/*/LICENSE-MIT
