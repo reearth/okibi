@@ -89,9 +89,13 @@ outweighs Papers by two orders of magnitude, so Papers came back with no top
 tiles in any cell and nothing to plan from — silently, and for the service
 that most needs warming. The limit is spent per service now.
 
+All three are plannable, and planning them turned up a third silent wrong
+answer: a document with no coordinates — Buildings' root tileset — was given
+the tile URL template, which is built out of coordinates. The plan named a URL
+of the right shape for somewhere that 404s, and put it first, metadata sorting
+ahead of content. That is refused now rather than guessed at.
+
 What has not happened is a plan being warmed against a real invalidation.
-Buildings has no `okibi.manifest.json` yet, so it is written down but not
-plannable.
 
 `@reearth/okibi` is published to npm. Nothing is published to crates.io.
 
