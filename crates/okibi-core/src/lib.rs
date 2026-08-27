@@ -12,6 +12,7 @@
 
 pub mod aggregate;
 pub mod digest;
+pub mod epochs;
 pub mod estimate;
 pub mod invalidation;
 pub mod manifest;
@@ -23,6 +24,7 @@ pub mod time;
 pub mod window;
 
 pub use digest::{DigestRecord, Kind, TopEntry, TopTile};
+pub use epochs::{EpochsFile, invalidations_between};
 pub use invalidation::{Axis, InvalidationEvent, Scope};
 pub use manifest::{Epoch, ServiceManifest, ZoomSemantics};
 pub use plan::{Entry, Lane, WarmPlan};

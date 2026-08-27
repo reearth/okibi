@@ -7,7 +7,12 @@
 //! the same compiled code the planner runs, rather than a second
 //! implementation of the same arithmetic that agrees with it today.
 
-use okibi_core::{DigestQuery, Window, aggregate, query};
+use okibi_core::{
+    DigestQuery, DigestRecord, EpochsFile, InvalidationEvent, PricingTable, ServiceManifest,
+    Window, aggregate, invalidations_between,
+    planner::{PlanInput, PlanOptions, Sources},
+    query,
+};
 use okibi_qk::{Quadkey, Scheme, Tile};
 use wasm_bindgen::prelude::*;
 
@@ -172,4 +177,153 @@ pub fn assemble_digest(
 struct Assembled {
     records: Vec<okibi_core::DigestRecord>,
     skipped: aggregate::Skipped,
+}
+
+/// Every invalidation between two versions of a service's epochs file.
+///
+/// The same diff `okibi invalidation` takes, because a service that runs a
+/// Worker can notice its own epochs moving without a commit, and two
+/// implementations of "which axis moved" would eventually disagree about what
+/// died. A tileset whose epochs are untouched did not die; one that only
+/// exists in the new file is new rather than invalidated, there being nothing
+/// cached under it to lose.
+#[wasm_bindgen(js_name = invalidationsBetween)]
+pub fn invalidations(
+    before: JsValue,
+    after: JsValue,
+    occurred_at: &str,
+    deadline: Option<String>,
+) -> Result<JsValue, JsError> {
+    let before: EpochsFile = from_js(before, "before")?;
+    let after: EpochsFile = from_js(after, "after")?;
+
+    let events = invalidations_between(&before, &after, occurred_at, deadline.as_deref());
+    out(&events)
+}
+
+/// What a plan is derived from.
+///
+/// One object rather than eight arguments, because the caller is assembling
+/// it out of documents it just read and a positional list of eight is a list
+/// two of which can be swapped without anything failing.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct JsPlanInput {
+    digests: Vec<DigestRecord>,
+    invalidation: InvalidationEvent,
+    manifests: Vec<ServiceManifest>,
+    pricing: PricingTable,
+    /// The tileset's epochs after the change, for filling URL templates.
+    epochs: EpochsFile,
+    #[serde(default)]
+    sources: JsSources,
+    #[serde(default)]
+    options: JsOptions,
+}
+
+#[derive(serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct JsSources {
+    #[serde(default)]
+    digest: Vec<String>,
+    #[serde(default)]
+    invalidation: String,
+    #[serde(default)]
+    manifests: std::collections::BTreeMap<String, String>,
+    #[serde(default)]
+    pricing: String,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct JsOptions {
+    #[serde(default = "default_half_life")]
+    half_life_days: f64,
+    #[serde(default)]
+    budget_usd: Option<f64>,
+    #[serde(default)]
+    coverage: Option<f64>,
+    #[serde(default = "yes")]
+    honour_deadline: bool,
+}
+
+fn default_half_life() -> f64 {
+    7.0
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl Default for JsOptions {
+    fn default() -> Self {
+        JsOptions {
+            half_life_days: default_half_life(),
+            budget_usd: None,
+            coverage: None,
+            honour_deadline: true,
+        }
+    }
+}
+
+/// Derive a warm plan.
+///
+/// The same pure function `okibi plan` runs — no network, no clock, no
+/// randomness — so a plan derived in a Worker and one derived in CI from the
+/// same inputs are the same plan, byte for byte. A second planner would warm
+/// somewhere slightly different and nothing about it would be an error.
+///
+/// What is not here is `--verify`: asking an origin whether the URLs exist is
+/// not part of deriving a plan, and a pure function is not the place to put a
+/// network call. A caller that wants it fetches a few of the URLs itself.
+#[wasm_bindgen(js_name = plan)]
+pub fn plan(input: JsValue) -> Result<JsValue, JsError> {
+    let input: JsPlanInput = from_js(input, "plan input")?;
+    let epoch = input.epochs.epoch_for(&input.invalidation.tileset);
+
+    let plan = okibi_core::plan(&PlanInput {
+        digests: &input.digests,
+        invalidation: &input.invalidation,
+        manifests: &input.manifests,
+        pricing: &input.pricing,
+        epoch,
+        sources: Sources {
+            digest: input.sources.digest,
+            invalidation: input.sources.invalidation,
+            manifests: input.sources.manifests,
+            pricing: input.sources.pricing,
+        },
+        options: PlanOptions {
+            half_life_days: input.options.half_life_days,
+            budget_usd: input.options.budget_usd,
+            coverage: input.options.coverage,
+            honour_deadline: input.options.honour_deadline,
+        },
+    })
+    .map_err(|e| JsError::new(&e.to_string()))?;
+
+    out(&plan)
+}
+
+/// Read a document the caller handed over, with the reader that reads it on
+/// disk.
+///
+/// Through JSON rather than straight off the JavaScript object, because these
+/// documents contain maps — a pricing table's units, an epochs file's
+/// tilesets — and how a map crosses this boundary is a thing the two readers
+/// disagree about. `serde_json` is what `okibi plan` reads a manifest with,
+/// so this is the same document meaning the same thing in both places rather
+/// than two readings that agree on the examples someone tried.
+fn from_js<T: serde::de::DeserializeOwned>(value: JsValue, what: &str) -> Result<T, JsError> {
+    let text = js_sys::JSON::stringify(&value)
+        .map(String::from)
+        .map_err(|_| JsError::new(&format!("the {what} is not JSON")))?;
+
+    serde_json::from_str(&text).map_err(|e| JsError::new(&format!("reading the {what}: {e}")))
+}
+
+/// The other direction, for the same reason.
+fn out<T: serde::Serialize>(value: &T) -> Result<JsValue, JsError> {
+    let text = serde_json::to_string(value).map_err(|e| JsError::new(&e.to_string()))?;
+    js_sys::JSON::parse(&text).map_err(|_| JsError::new("the result would not serialise"))
 }

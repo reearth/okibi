@@ -6,7 +6,6 @@
 
 mod config;
 mod inputs;
-mod invalidation;
 mod report;
 mod review;
 mod verify;
@@ -481,7 +480,7 @@ fn run_invalidation(
     let before: inputs::EpochsFile = inputs::read_json(before)?;
     let after: inputs::EpochsFile = inputs::read_json(after)?;
 
-    let events = invalidation::between(&before, &after, occurred_at, deadline);
+    let events = okibi_core::invalidations_between(&before, &after, occurred_at, deadline);
     if events.is_empty() {
         eprintln!("okibi: no epoch moved, so nothing was invalidated");
         return Ok(());

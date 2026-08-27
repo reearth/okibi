@@ -1031,10 +1031,12 @@ dependencies = [
 name = "okibi-wasm"
 version = "0.0.0"
 dependencies = [
+ "js-sys",
  "okibi-core",
  "okibi-qk",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "wasm-bindgen",
 ]
 

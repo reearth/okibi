@@ -72,6 +72,33 @@ notice being subtly wrong: a tile projected into the wrong cell is invisible —
 the events keep arriving, the digest keeps aggregating — until a plan warms
 the wrong part of the world.
 
+## Noticing what died, and planning
+
+```ts
+import { invalidationsBetween, plan } from "@reearth/okibi";
+
+const events = invalidationsBetween(before, after, new Date().toISOString());
+for (const invalidation of events) {
+  const warm = plan({ digests, invalidation, manifests, pricing, epochs: after });
+}
+```
+
+The same pure planner `okibi plan` runs, so a plan derived in a Worker and one
+derived in CI from the same inputs are the same plan. That is the only reason
+this is worth having: a second planner would order the tiles slightly
+differently and warm somewhere slightly wrong, and the result would still look
+like a plan — ordered entries, a coverage, a price.
+
+It is here for the service whose cache key moves without a commit. Such a
+service has nothing for CI to diff, and the cron that would notice instead is
+better off in the Worker: a Cloudflare cron does not switch itself off after
+sixty quiet days, and a watch that stopped looks exactly like an invalidation
+that never happened.
+
+What is not here is `--verify`. Asking an origin whether the URLs exist is not
+part of deriving a plan, and a pure function is not the place for a network
+call — a caller that wants it fetches a few of the URLs itself.
+
 ## Taking a digest
 
 ```ts

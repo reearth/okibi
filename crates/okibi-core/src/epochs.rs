@@ -1,24 +1,53 @@
-//! Deriving what died from what changed.
+//! A service's `okibi.epochs.json`, and what a change to it means.
 //!
-//! A service does not write invalidation events. It edits `okibi.epochs.json`,
-//! which is the same file its cache keys are built from, and the event is the
-//! diff — so the event is a consequence of the commit rather than a second
-//! description of it that can disagree with it.
+//! A service does not write invalidation events. It edits the same file its
+//! cache keys are built from, and the event is the diff — so the event is a
+//! consequence of the change rather than a second description of it that can
+//! disagree with it.
+//!
+//! Here rather than in the command line, because a service that runs a Worker
+//! can notice its own epochs moving without a commit, and two implementations
+//! of "which axis moved" would eventually disagree about what died.
 
-use okibi_core::{
-    InvalidationEvent, Scope,
-    invalidation::{Axis, INVALIDATION_VERSION},
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    invalidation::{Axis, INVALIDATION_VERSION, InvalidationEvent, Scope},
     manifest::Epoch,
 };
 
-use crate::inputs::EpochsFile;
+/// A service's `okibi.epochs.json`.
+///
+/// The same file the service builds its cache keys from. Reading the epochs
+/// for a URL out of it, rather than out of the invalidation event, is what
+/// makes a URL correct on every axis: the event says which one moved.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EpochsFile {
+    pub service: String,
+    pub tilesets: BTreeMap<String, Epoch>,
+}
+
+impl EpochsFile {
+    /// The epochs recorded for a tileset, or none.
+    ///
+    /// Absent is not an error here. A service whose versions live in a cache
+    /// key rather than in a URL has nothing for this file to hold, and
+    /// demanding some anyway would be demanding a file for something nothing
+    /// reads. A template that does ask for an epoch is refused by the planner,
+    /// which is where the asking is visible.
+    pub fn epoch_for(&self, tileset: &str) -> Epoch {
+        self.tilesets.get(tileset).cloned().unwrap_or_default()
+    }
+}
 
 /// Every invalidation between two versions of an epochs file.
 ///
 /// One event per tileset that moved. A tileset whose epochs are untouched did
 /// not die, and a tileset that only exists in the new file is new rather than
 /// invalidated: nothing was cached under it to lose.
-pub fn between(
+pub fn invalidations_between(
     before: &EpochsFile,
     after: &EpochsFile,
     occurred_at: &str,
@@ -109,7 +138,7 @@ mod tests {
         let before = epochs(&[("a", "osm-08-18", "ezu-0.7.1", "r12")]);
         let after = epochs(&[("a", "osm-08-18", "ezu-0.7.1", "r13")]);
 
-        let events = between(&before, &after, AT, Some("2026-08-24T08:00:00Z"));
+        let events = invalidations_between(&before, &after, AT, Some("2026-08-24T08:00:00Z"));
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].axis, Axis::Param);
         assert_eq!(events[0].epoch_from, "r12");
@@ -124,7 +153,7 @@ mod tests {
         let before = epochs(&[("a", "s", "g", "p"), ("b", "s", "g", "p")]);
         let after = epochs(&[("a", "s", "g", "p2"), ("b", "s", "g", "p")]);
 
-        let events = between(&before, &after, AT, None);
+        let events = invalidations_between(&before, &after, AT, None);
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].tileset, "a");
     }
@@ -136,7 +165,7 @@ mod tests {
         let before = epochs(&[("a", "s", "g", "p")]);
         let after = epochs(&[("a", "s", "g", "p"), ("b", "s", "g", "p")]);
 
-        assert!(between(&before, &after, AT, None).is_empty());
+        assert!(invalidations_between(&before, &after, AT, None).is_empty());
     }
 
     #[test]
@@ -144,7 +173,7 @@ mod tests {
         let before = epochs(&[("a", "s", "g", "p"), ("b", "s", "g", "p")]);
         let after = epochs(&[("a", "s", "g", "p")]);
 
-        assert!(between(&before, &after, AT, None).is_empty());
+        assert!(invalidations_between(&before, &after, AT, None).is_empty());
     }
 
     #[test]
@@ -152,7 +181,7 @@ mod tests {
         let before = epochs(&[("a", "osm-07", "ezu-0.7.1", "r12")]);
         let after = epochs(&[("a", "osm-08", "ezu-0.8.0", "r13")]);
 
-        let events = between(&before, &after, AT, None);
+        let events = invalidations_between(&before, &after, AT, None);
         assert_eq!(events[0].axis, Axis::Source);
         assert_eq!(events[0].epoch_from, "osm-07");
     }
@@ -162,7 +191,7 @@ mod tests {
         let before = epochs(&[("c", "s", "g", "p"), ("a", "s", "g", "p")]);
         let after = epochs(&[("c", "s", "g", "p2"), ("a", "s", "g", "p2")]);
 
-        let events = between(&before, &after, AT, None);
+        let events = invalidations_between(&before, &after, AT, None);
         let tilesets: Vec<&str> = events.iter().map(|e| e.tileset.as_str()).collect();
         assert_eq!(tilesets, ["a", "c"]);
     }

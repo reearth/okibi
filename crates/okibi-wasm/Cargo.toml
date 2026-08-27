@@ -14,7 +14,14 @@ crate-type = ["cdylib", "rlib"]
 okibi-core.workspace = true
 okibi-qk.workspace = true
 serde.workspace = true
-# Structured values across the boundary. The alternative is JSON strings on
-# both sides, which means parsing a digest twice to hand it to a bucket.
+# Structured values across the boundary, for the row shapes the digest reads:
+# they are arrays of flat records, and handing them over as objects avoids
+# parsing a digest twice to put it in a bucket.
 serde-wasm-bindgen = "0.6"
+# The documents — manifests, pricing, epochs, plans — cross as JSON instead,
+# and are read with the same serde_json the command line reads them with. They
+# contain maps, and a second reader with its own opinion about how a map
+# crosses a boundary is a second answer to what a document says.
+serde_json.workspace = true
+js-sys = "0.3"
 wasm-bindgen.workspace = true

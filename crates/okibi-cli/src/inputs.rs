@@ -10,32 +10,9 @@ use okibi_core::{
     DigestRecord, InvalidationEvent, PricingTable, ServiceManifest, manifest::Epoch,
     planner::Sources,
 };
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-/// A service's `okibi.epochs.json`.
-///
-/// The same file the service builds its cache keys from. Reading the epochs
-/// for a URL out of it, rather than out of the invalidation event, is what
-/// makes a URL correct on every axis: the event says which one moved.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct EpochsFile {
-    pub service: String,
-    pub tilesets: BTreeMap<String, Epoch>,
-}
-
-impl EpochsFile {
-    /// The epochs recorded for a tileset, or none.
-    ///
-    /// Absent is not an error here. A service whose versions live in a cache
-    /// key rather than in a URL has nothing for this file to hold, and
-    /// demanding some anyway would be demanding a file for something nothing
-    /// reads. A template that does ask for an epoch is refused by the planner,
-    /// which is where the asking is visible.
-    pub fn epoch_for(&self, tileset: &str) -> Epoch {
-        self.tilesets.get(tileset).cloned().unwrap_or_default()
-    }
-}
+pub use okibi_core::EpochsFile;
 
 /// Everything `plan` read, and the hashes that say so.
 pub struct Loaded {
