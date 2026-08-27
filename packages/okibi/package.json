@@ -1,6 +1,6 @@
 {
   "name": "@reearth/okibi",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Tile-demand events, quadkey projection and demand digests, for services okibi warms",
   "license": "MIT OR Apache-2.0",
   "repository": {
