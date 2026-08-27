@@ -2,7 +2,8 @@
 
 Warm the tiles that people actually ask for, after a cache invalidation kills them.
 
-> ⚠️ Early work in progress. Nothing here runs yet — see [Status](#status).
+> ⚠️ Early work in progress. Running against live demand, not yet against a
+> real invalidation — see [Status](#status).
 
 ## The problem
 
@@ -73,13 +74,26 @@ All four pieces exist and run: the [specifications](spec/README.md), the
 writer a service calls, the planner, the executor, and the actions that put a
 plan on a pull request and then fetch it.
 
-What has not happened is any of it meeting real data. No service writes
-tile-demand events yet, so no digest has ever been taken from a live dataset —
-which also means the Analytics Engine SQL in `okibi digest` has never run
-against Analytics Engine. `okibi digest --print-sql` exists to be read before
-it is trusted.
+Three services write tile-demand events — Re:Earth Terrain, Buildings and
+Papers — and digests have been taken from the live dataset since the events
+started on 2026-08-24. Plans have been derived from those digests and costed;
+`okibi digest --print-sql` still exists to be read before the queries are
+trusted.
 
-Nothing is published to crates.io or npm.
+Meeting real data cost the queries two corrections that no test here could
+have found, because both are things only Analytics Engine can say. It rejects
+an `IF()` whose two branches are a double and an integer, so the digest failed
+on its first run against a real dataset. And the top-tiles row limit, spent
+across every service at once, went almost entirely to the busiest one: Terrain
+outweighs Papers by two orders of magnitude, so Papers came back with no top
+tiles in any cell and nothing to plan from — silently, and for the service
+that most needs warming. The limit is spent per service now.
+
+What has not happened is a plan being warmed against a real invalidation.
+Buildings has no `okibi.manifest.json` yet, so it is written down but not
+plannable.
+
+`@reearth/okibi` is published to npm. Nothing is published to crates.io.
 
 ## Using it
 
