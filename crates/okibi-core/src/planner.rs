@@ -91,10 +91,7 @@ pub enum PlanError {
     /// filling it in produces a URL of the right shape for somewhere that
     /// does not exist — and the plan then reads as covering a document it
     /// would in fact spend a request 404ing on.
-    NoMetaUrl {
-        service: String,
-        kind: &'static str,
-    },
+    NoMetaUrl { service: String, kind: &'static str },
 }
 
 impl std::fmt::Display for PlanError {
