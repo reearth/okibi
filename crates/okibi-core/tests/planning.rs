@@ -570,6 +570,43 @@ fn a_template_that_asks_for_an_epoch_must_be_given_it() {
     );
 }
 
+/// A metadata document the manifest names no URL for is refused rather than
+/// fetched through the tile template.
+///
+/// The tile template is built out of coordinates and this document has none,
+/// so filling it in yields a URL of exactly the right shape for somewhere
+/// that does not exist. The plan would read as covering the root document and
+/// would in fact spend its first and most important request on a 404 — which
+/// is the request every client makes before it asks for a tile.
+#[test]
+fn a_metadata_document_with_no_url_is_refused_rather_than_guessed_at() {
+    let mut case = Case::new(vec![metadata_cell(9120.0)]);
+    case.manifests[0].meta_urls.clear();
+
+    let error = okibi_core::plan(&PlanInput {
+        digests: &case.digests,
+        invalidation: &case.event,
+        manifests: &case.manifests,
+        pricing: &case.pricing,
+        epoch: Epoch {
+            source: "osm-2026-08-18".into(),
+            algo: "ezu-0.7.1".into(),
+            param: "style-aoi-04@r13".into(),
+        },
+        sources: Sources::default(),
+        options: PlanOptions::default(),
+    })
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        okibi_core::PlanError::NoMetaUrl {
+            service: "papers".to_string(),
+            kind: "tileset",
+        }
+    );
+}
+
 /// Including one only a metadata URL asks for, since a plan puts those first
 /// and a broken one is everybody's first paint.
 #[test]

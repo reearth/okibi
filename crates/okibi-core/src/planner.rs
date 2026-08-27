@@ -84,6 +84,17 @@ pub enum PlanError {
         axis: &'static str,
         template: String,
     },
+    /// A document with no coordinates, and no `meta_urls` entry for its kind.
+    ///
+    /// Refused for the same reason as a missing epoch. The tile template is
+    /// built out of coordinates and a document of this kind has none, so
+    /// filling it in produces a URL of the right shape for somewhere that
+    /// does not exist — and the plan then reads as covering a document it
+    /// would in fact spend a request 404ing on.
+    NoMetaUrl {
+        service: String,
+        kind: &'static str,
+    },
 }
 
 impl std::fmt::Display for PlanError {
@@ -98,6 +109,11 @@ impl std::fmt::Display for PlanError {
             PlanError::EpochMissing { axis, template } => write!(
                 f,
                 "{template:?} needs {{epoch.{axis}}} and no {axis} epoch was given"
+            ),
+            PlanError::NoMetaUrl { service, kind } => write!(
+                f,
+                "{service}'s digest has {kind} documents and its manifest has no \
+                 meta_urls.{kind} to fetch them by"
             ),
         }
     }
@@ -183,7 +199,7 @@ pub fn plan(input: &PlanInput<'_>) -> Result<WarmPlan, PlanError> {
     let cells = collect_cells(input, manifest);
     let demand_in_scope: f64 = cells.values().map(|cell| cell.freq).sum();
 
-    let mut candidates = expand(input, manifest, &cells);
+    let mut candidates = expand(input, manifest, &cells)?;
     promote_ancestors(manifest, &mut candidates);
     sort(&mut candidates);
 
@@ -371,7 +387,7 @@ fn expand(
     input: &PlanInput<'_>,
     manifest: &ServiceManifest,
     cells: &BTreeMap<CellKey, Cell>,
-) -> Vec<Candidate> {
+) -> Result<Vec<Candidate>, PlanError> {
     let event = input.invalidation;
     let mut candidates = Vec::new();
 
@@ -389,7 +405,10 @@ fn expand(
                 let kind_name = kind_name(*kind);
                 let url = manifest
                     .meta_url_for(kind_name, &event.tileset, id, &input.epoch)
-                    .unwrap_or_else(|| manifest.url_for(&event.tileset, id, &input.epoch));
+                    .ok_or_else(|| PlanError::NoMetaUrl {
+                        service: event.service.clone(),
+                        kind: kind_name,
+                    })?;
                 (Rank::Metadata, url)
             };
 
@@ -410,7 +429,7 @@ fn expand(
         }
     }
 
-    candidates
+    Ok(candidates)
 }
 
 fn kind_name(kind: Kind) -> &'static str {
