@@ -19,14 +19,30 @@ pub struct ServiceManifest {
     /// regenerates the tile.
     pub url_template: String,
     /// By tile kind, for the documents that have no coordinates.
+    ///
+    /// A `null` says the kind is asked for and there is nothing warming it
+    /// would achieve — a document composed per request, or one whose freshness
+    /// is measured in a minute. That is different from a kind the manifest
+    /// never mentions, which is a URL somebody forgot to give, and is refused.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub meta_urls: BTreeMap<String, String>,
+    pub meta_urls: BTreeMap<String, Option<String>>,
     pub cost: Cost,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lanes: Option<Lanes>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub depends_on: Vec<Dependency>,
     pub zoom_semantics: ZoomSemantics,
+}
+
+/// What a manifest says about fetching a document with no coordinates.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MetaUrl {
+    /// Fetch it here.
+    At(String),
+    /// The service named this kind and said there is no URL worth fetching.
+    NotWarmable,
+    /// The manifest does not mention this kind at all.
+    Unnamed,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -118,16 +134,13 @@ impl ServiceManifest {
         self.fill(&self.url_template, tileset, id, epoch)
     }
 
-    /// The URL for a document with no coordinates, if the service named one.
-    pub fn meta_url_for(
-        &self,
-        kind: &str,
-        tileset: &str,
-        id: &str,
-        epoch: &Epoch,
-    ) -> Option<String> {
-        let template = self.meta_urls.get(kind)?;
-        Some(self.fill(template, tileset, id, epoch))
+    /// What to do about a document with no coordinates.
+    pub fn meta_url_for(&self, kind: &str, tileset: &str, id: &str, epoch: &Epoch) -> MetaUrl {
+        match self.meta_urls.get(kind) {
+            None => MetaUrl::Unnamed,
+            Some(None) => MetaUrl::NotWarmable,
+            Some(Some(template)) => MetaUrl::At(self.fill(template, tileset, id, epoch)),
+        }
     }
 
     fn fill(&self, template: &str, tileset: &str, id: &str, epoch: &Epoch) -> String {
@@ -178,7 +191,7 @@ mod tests {
             url_template: "https://papers.reearth.land/t/{tileset}/{id}?e={epoch.param}".into(),
             meta_urls: [(
                 "tileset".to_string(),
-                "https://p/{tileset}/meta.json".to_string(),
+                Some("https://p/{tileset}/meta.json".to_string()),
             )]
             .into_iter()
             .collect(),
@@ -209,11 +222,25 @@ mod tests {
         );
         assert_eq!(
             manifest().meta_url_for("tileset", "style-aoi-04", "meta.json", &epoch),
-            Some("https://p/style-aoi-04/meta.json".to_string())
+            MetaUrl::At("https://p/style-aoi-04/meta.json".to_string())
         );
         assert_eq!(
             manifest().meta_url_for("subtree", "style-aoi-04", "x", &epoch),
-            None
+            MetaUrl::Unnamed
+        );
+    }
+
+    /// A kind the service named and gave no URL for is not the same as one it
+    /// never mentioned: the first is a document warming cannot help, the
+    /// second is a URL somebody forgot.
+    #[test]
+    fn a_kind_can_be_named_and_still_have_nowhere_to_fetch() {
+        let mut manifest = manifest();
+        manifest.meta_urls.insert("subtree".into(), None);
+
+        assert_eq!(
+            manifest.meta_url_for("subtree", "style-aoi-04", "x", &Epoch::default()),
+            MetaUrl::NotWarmable
         );
     }
 }

@@ -62,6 +62,15 @@ pub struct Stats {
     /// Below 1 when a deadline, a budget, or demand nobody named cut the plan
     /// short.
     pub coverage_of_demand: f64,
+    /// Documents the service asked okibi not to warm, because warming them
+    /// achieves nothing. Recorded so that a plan smaller than the demand it
+    /// was derived from says why, rather than reading as a quiet day.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub unwarmable: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

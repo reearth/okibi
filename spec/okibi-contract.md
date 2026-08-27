@@ -48,6 +48,22 @@ if it is not in here or in a digest, the planner cannot act on it.
 service: substitute `{tileset}`, `{id}` and the epochs, and the result is a URL
 that regenerates the tile. The on-demand path is the generator.
 
+`meta_urls` does the same for the documents that have no coordinates, keyed by
+kind, because the tile template is built out of coordinates and filling it in
+for a document that has none yields a URL of exactly the right shape for
+somewhere that does not exist.
+
+A `null` there says the kind is asked for and warming it would achieve
+nothing — a document composed per request, or one whose freshness is measured
+in a minute. Warming works on things that stay warm, and the service is the
+only one that knows whether its document does. Such a document is left out of
+the plan and counted in `stats.unwarmable`, because a plan quietly smaller
+than the demand it was derived from reads as a quiet day.
+
+A kind that is **absent** is different: that is a URL somebody forgot, and it
+is refused. The two cases look identical in a plan and are opposite in
+meaning, so they are spelled differently in the manifest.
+
 `default_gen_ms` and `default_bytes` are fallbacks for cells with no
 measurement. Anything with observed demand has real numbers in the digest.
 

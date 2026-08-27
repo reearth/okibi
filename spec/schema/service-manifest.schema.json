@@ -5,17 +5,28 @@
   "description": "Everything okibi is allowed to know about a service. See spec/okibi-contract.md.",
   "type": "object",
   "properties": {
-    "manifest": { "const": "okibi-service/1" },
-    "service": { "type": "string", "minLength": 1 },
+    "manifest": {
+      "const": "okibi-service/1"
+    },
+    "service": {
+      "type": "string",
+      "minLength": 1
+    },
     "url_template": {
       "description": "Substituting {tileset}, {id} and {epoch.*} must reconstruct a URL that regenerates the tile.",
       "type": "string",
       "minLength": 1
     },
     "meta_urls": {
-      "description": "Keyed by tile kind, for the documents that have no coordinates.",
+      "description": "Keyed by tile kind, for the documents that have no coordinates. A null says the kind is asked for and warming it would achieve nothing — a document composed per request, or one whose freshness is measured in a minute. A kind that is absent is a URL somebody forgot, and is refused rather than guessed at.",
       "type": "object",
-      "additionalProperties": { "type": "string", "minLength": 1 }
+      "additionalProperties": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "minLength": 1
+      }
     },
     "cost": {
       "type": "object",
@@ -25,21 +36,42 @@
           "type": "number",
           "minimum": 0
         },
-        "default_bytes": { "type": "number", "minimum": 0 },
-        "concurrency_limit": { "type": "integer", "minimum": 1 },
-        "rate_per_s": { "type": "number", "exclusiveMinimum": 0 },
+        "default_bytes": {
+          "type": "number",
+          "minimum": 0
+        },
+        "concurrency_limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rate_per_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "billing": {
           "description": "Resource counts per generation. Never prices: those live in a pricing table.",
           "type": "object",
           "properties": {
-            "pricing_profile": { "type": "string", "minLength": 1 },
+            "pricing_profile": {
+              "type": "string",
+              "minLength": 1
+            },
             "per_gen": {
               "description": "How much of each resource one generation spends, keyed the way the pricing table keys its units. null means measure it: cpu_ms falls back to the digest's p50_gen_ms and egress_byte to its avg_bytes; any other resource left null counts as nothing.",
               "type": "object",
-              "additionalProperties": { "type": ["number", "null"], "minimum": 0 }
+              "additionalProperties": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              }
             }
           },
-          "required": ["pricing_profile", "per_gen"],
+          "required": [
+            "pricing_profile",
+            "per_gen"
+          ],
           "additionalProperties": false
         }
       },
@@ -66,17 +98,32 @@
       "items": {
         "type": "object",
         "properties": {
-          "service": { "type": "string", "minLength": 1 },
-          "reason": { "type": "string" },
-          "order": { "enum": ["before"] }
+          "service": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string"
+          },
+          "order": {
+            "enum": [
+              "before"
+            ]
+          }
         },
-        "required": ["service", "order"],
+        "required": [
+          "service",
+          "order"
+        ],
         "additionalProperties": false
       }
     },
     "zoom_semantics": {
       "description": "Whether a shallower zoom is a coarser view of the same ground, which decides whether ancestors are worth warming.",
-      "enum": ["resolution", "size_bucket"]
+      "enum": [
+        "resolution",
+        "size_bucket"
+      ]
     }
   },
   "required": [

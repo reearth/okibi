@@ -215,6 +215,7 @@ mod tests {
                 total: tiles,
                 sum_expected_gen_ms: 0.0,
                 coverage_of_demand: 0.93,
+                unwarmable: 0,
             },
             estimate: Estimate {
                 pricing: "pricing/cloudflare-2026-08.json@sha256:0".into(),

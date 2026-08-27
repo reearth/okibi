@@ -14,7 +14,7 @@ use crate::{
     digest::{DigestRecord, Kind},
     estimate,
     invalidation::InvalidationEvent,
-    manifest::{Epoch, ServiceManifest, ZoomSemantics},
+    manifest::{Epoch, MetaUrl, ServiceManifest, ZoomSemantics},
     plan::{DerivedFrom, Entry, Lane, Stats, WarmPlan},
     pricing::PricingTable,
     time,
@@ -196,7 +196,9 @@ pub fn plan(input: &PlanInput<'_>) -> Result<WarmPlan, PlanError> {
     let cells = collect_cells(input, manifest);
     let demand_in_scope: f64 = cells.values().map(|cell| cell.freq).sum();
 
-    let mut candidates = expand(input, manifest, &cells)?;
+    let expanded = expand(input, manifest, &cells)?;
+    let unwarmable = expanded.unwarmable;
+    let mut candidates = expanded.candidates;
     promote_ancestors(manifest, &mut candidates);
     sort(&mut candidates);
 
@@ -244,6 +246,7 @@ pub fn plan(input: &PlanInput<'_>) -> Result<WarmPlan, PlanError> {
         total: entries.len(),
         sum_expected_gen_ms: kept.iter().map(|c| c.gen_ms).sum(),
         coverage_of_demand: ratio(covered, demand_in_scope),
+        unwarmable,
     };
 
     let estimate = estimate::estimate(estimate::Inputs {
@@ -302,7 +305,8 @@ fn check_epochs(manifest: &ServiceManifest, epoch: &Epoch) -> Result<(), PlanErr
         ("param", epoch.param.as_str()),
     ];
 
-    for template in std::iter::once(&manifest.url_template).chain(manifest.meta_urls.values()) {
+    let named = manifest.meta_urls.values().flatten();
+    for template in std::iter::once(&manifest.url_template).chain(named) {
         for (axis, value) in axes {
             if value.is_empty() && template.contains(&format!("{{epoch.{axis}}}")) {
                 return Err(PlanError::EpochMissing {
@@ -384,9 +388,10 @@ fn expand(
     input: &PlanInput<'_>,
     manifest: &ServiceManifest,
     cells: &BTreeMap<CellKey, Cell>,
-) -> Result<Vec<Candidate>, PlanError> {
+) -> Result<Expanded, PlanError> {
     let event = input.invalidation;
     let mut candidates = Vec::new();
+    let mut unwarmable = 0usize;
 
     for ((kind, _qk8), cell) in cells {
         let gen_ms = measured_or(cell.gen_ms, manifest.cost.default_gen_ms);
@@ -400,13 +405,22 @@ fn expand(
                 )
             } else {
                 let kind_name = kind_name(*kind);
-                let url = manifest
-                    .meta_url_for(kind_name, &event.tileset, id, &input.epoch)
-                    .ok_or_else(|| PlanError::NoMetaUrl {
-                        service: event.service.clone(),
-                        kind: kind_name,
-                    })?;
-                (Rank::Metadata, url)
+                match manifest.meta_url_for(kind_name, &event.tileset, id, &input.epoch) {
+                    MetaUrl::At(url) => (Rank::Metadata, url),
+                    // Asked for, and nothing warming it would achieve. Counted
+                    // rather than dropped: a plan silently smaller than the
+                    // demand it was derived from reads as a quiet day.
+                    MetaUrl::NotWarmable => {
+                        unwarmable += 1;
+                        continue;
+                    }
+                    MetaUrl::Unnamed => {
+                        return Err(PlanError::NoMetaUrl {
+                            service: event.service.clone(),
+                            kind: kind_name,
+                        });
+                    }
+                }
             };
 
             candidates.push(Candidate {
@@ -426,7 +440,16 @@ fn expand(
         }
     }
 
-    Ok(candidates)
+    Ok(Expanded {
+        candidates,
+        unwarmable,
+    })
+}
+
+/// What `expand` found, and what it left out on purpose.
+struct Expanded {
+    candidates: Vec<Candidate>,
+    unwarmable: usize,
 }
 
 fn kind_name(kind: Kind) -> &'static str {

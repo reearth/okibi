@@ -18,7 +18,7 @@ fn manifest(zoom: ZoomSemantics) -> ServiceManifest {
         url_template: PAPERS_URL.into(),
         meta_urls: [(
             "tileset".to_string(),
-            "https://papers.reearth.land/t/{tileset}/meta.json".to_string(),
+            Some("https://papers.reearth.land/t/{tileset}/meta.json".to_string()),
         )]
         .into_iter()
         .collect(),
@@ -570,6 +570,51 @@ fn a_template_that_asks_for_an_epoch_must_be_given_it() {
     );
 }
 
+/// A document warming cannot help is left out of the plan and counted.
+///
+/// Warming works on things that stay warm. A root tileset composed per request
+/// and served with a minute of freshness is neither: the request costs one
+/// slot at the very front of the plan, where metadata sorts, and buys nothing.
+/// The service is the one that knows this, so it is the manifest that says it.
+#[test]
+fn a_document_warming_cannot_help_is_counted_rather_than_fetched() {
+    let mut case = Case::new(vec![
+        metadata_cell(9120.0),
+        cell(
+            "13300211",
+            "2026-08-23/P1D",
+            1820.0,
+            &[("13300211231022", "14/14552/6451", 1820.0)],
+        ),
+    ]);
+    case.manifests[0].meta_urls.insert("tileset".into(), None);
+
+    let plan = okibi_core::plan(&PlanInput {
+        digests: &case.digests,
+        invalidation: &case.event,
+        manifests: &case.manifests,
+        pricing: &case.pricing,
+        epoch: Epoch {
+            source: "osm-2026-08-18".into(),
+            algo: "ezu-0.7.1".into(),
+            param: "style-aoi-04@r13".into(),
+        },
+        sources: Sources::default(),
+        options: PlanOptions::default(),
+    })
+    .unwrap();
+
+    assert_eq!(plan.stats.unwarmable, 1, "the root document");
+    assert!(
+        plan.entries
+            .iter()
+            .all(|entry| !entry.url.contains("meta.json")),
+        "{:?}",
+        plan.entries.iter().map(|e| &e.url).collect::<Vec<_>>()
+    );
+    assert!(!plan.entries.is_empty(), "the tiles are still planned");
+}
+
 /// A metadata document the manifest names no URL for is refused rather than
 /// fetched through the tile template.
 ///
@@ -615,7 +660,7 @@ fn a_metadata_template_is_checked_too() {
     case.manifests[0].url_template = "https://papers.reearth.land/t/{tileset}/{id}".into();
     case.manifests[0].meta_urls.insert(
         "tileset".into(),
-        "https://p/{tileset}/{epoch.algo}/meta.json".into(),
+        Some("https://p/{tileset}/{epoch.algo}/meta.json".into()),
     );
 
     let error = okibi_core::plan(&PlanInput {
