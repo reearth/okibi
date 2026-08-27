@@ -27,9 +27,13 @@ service adds to use `plan`, `warm` and `watch` together.
 
 ## Versions
 
-Reference them by major tag — `reearth/okibi/actions/plan@v1` — which tracks
-the major version of the specifications they implement. A plan produced by
-`@v1` is an `okibi-warm-plan/1`.
+Reference them by release tag — `reearth/okibi/actions/plan@v0.6.0`.
+
+The major tag these were meant to be referenced by, `@v1`, does not exist and
+should not be created yet: the release workflow fires on `v*` and would read
+`v1` as a version to publish to npm. It arrives with 1.0, and will track the
+major version of the specifications these implement — a plan produced by `@v1`
+being an `okibi-warm-plan/1`.
 
 Each action builds okibi from source, because nothing is released yet. That is
 what the cache in every one of them is holding down, and it becomes a download
