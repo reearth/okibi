@@ -66,6 +66,37 @@ roll-up.
 no such filter — see [the vocabulary](../tile-demand.md#rules-for-writing) for
 why the two differ.
 
+**Read the result as a lower bound.** An event is written by the service, so a
+request answered before the service runs is a request nothing records. On
+Cloudflare that is the edge cache in front of the Worker, and it is not a
+rounding error: on 2026-08-26 the three services okibi was built for saw
+
+| | client requests | answered at the edge | recorded |
+|---|---|---|---|
+| Terrain | 19,305,507 | 12,049,583 (62%) | 8,158,472 |
+| Papers | 166,300 | 35,870 (22%) | 35,207 |
+| Buildings | 296,011 | 1,396 (0.5%) | 7,023 |
+
+The spread is the point. What the edge absorbs is what repeats within one
+colo, which is the head of the distribution — so the loss is not uniform, it
+is largest exactly where demand concentrates.
+
+Two consequences, and it is worth being clear about which is which.
+
+A digest therefore describes demand **flatter than it is**. Warming is ranked
+by demand, and a loss that grows with popularity compresses the ranking rather
+than reordering it, so a plan still warms the head first. What it gets wrong
+is the size: `coverage_of_demand` reads low and the wait `no_warm` describes
+reads short. okibi undersells itself, which is the safe direction for a number
+somebody decides with.
+
+That the ranking survives is an argument, not a measurement. A service whose
+edge absorbs its head unevenly could have its order changed, and nothing here
+would say so.
+
+Bypassing the edge would fix the ledger and defeat the purpose: that cache is
+one of the layers warming exists to fill. The bound is the honest answer.
+
 ## Writing
 
 ```ts
