@@ -49,6 +49,13 @@ jobs:
         with:
           manifests: okibi.manifest.json
           digests: digests/
+          # A handful of the plan's URLs are fetched and checked. The planner
+          # fills a template from the manifest and cannot know the template
+          # was right; when it is not, every entry answers 404 and the plan
+          # still reads as correct — ordered entries, a coverage, a price.
+          # The pull request is where that should be caught.
+          verify: "5"
+          warm-secret: ${{ secrets.OKIBI_WARM_SECRET }}
 
   # After a deploy the same plan is derived and then run. Warming is a GET to
   # the service's own on-demand path, so nothing here needs to know how a tile

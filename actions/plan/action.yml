@@ -19,8 +19,12 @@ inputs:
     description: The service's okibi.epochs.json.
     default: okibi.epochs.json
   pricing:
-    description: The pricing table to cost the plan with.
-    default: pricing/cloudflare-2026-08.json
+    description: >
+      The pricing table to cost the plan with. Defaults to the one that comes
+      with the okibi checked out below, because a price list is okibi's to
+      keep current and a service that copied one would be costing plans
+      against whatever it copied.
+    default: .okibi-src/pricing/cloudflare-2026-08.json
   deadline:
     description: When the warming should be finished by, as RFC 3339.
     required: false
@@ -29,6 +33,18 @@ inputs:
     required: false
   coverage:
     description: Stop planning once this much of the demand is covered.
+    required: false
+  verify:
+    description: >
+      Ask the origin whether a sample of the plan's URLs exist, and fail if
+      they do not. The planner fills a template and cannot know the template
+      was right; when it is wrong every entry answers 404 and the plan reads
+      as correct. Set to a sample size, or leave empty to skip.
+    required: false
+  warm-secret:
+    description: >
+      Shared with the service, so the sample `verify` fetches is marked as
+      okibi's own. A verification counted as demand is demand okibi invented.
     required: false
   comment:
     description: Post the estimate as a pull request comment.
@@ -80,6 +96,7 @@ runs:
       shell: bash
       env:
         OKIBI: .okibi-src/target/release/okibi
+        OKIBI_WARM_SECRET: ${{ inputs.warm-secret }}
       run: |
         set -euo pipefail
 
@@ -112,6 +129,7 @@ runs:
             --epochs "${{ inputs.epochs }}" \
             ${{ inputs.budget-usd && format('--budget-usd {0}', inputs.budget-usd) || '' }} \
             ${{ inputs.coverage && format('--coverage {0}', inputs.coverage) || '' }} \
+            ${{ inputs.verify && format('--verify {0}', inputs.verify) || '' }} \
             --out "$plan"
 
           "$OKIBI" report "$plan" --invalidation "$event" >> "$RUNNER_TEMP/okibi-report.md"

@@ -35,8 +35,12 @@ inputs:
       `okibi/` prefix so it cannot be mistaken for a cached tile.
     required: true
   pricing:
-    description: The pricing table to cost the plan with.
-    default: pricing/cloudflare-2026-08.json
+    description: >
+      The pricing table to cost the plan with. Defaults to the one that comes
+      with the okibi checked out below, because a price list is okibi's to
+      keep current and a service that copied one would be costing plans
+      against whatever it copied.
+    default: .okibi-src/pricing/cloudflare-2026-08.json
   budget-usd:
     description: What a run may spend with nobody watching.
     default: "5"
