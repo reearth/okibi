@@ -9,6 +9,7 @@ mod inputs;
 mod invalidation;
 mod report;
 mod review;
+mod verify;
 mod wae;
 mod warm;
 mod window;
@@ -177,6 +178,14 @@ struct PlanArgs {
     /// The service's okibi.epochs.json, for the URLs.
     #[arg(long, default_value = "okibi.epochs.json")]
     epochs: PathBuf,
+
+    /// Ask the origin whether a sample of the plan's URLs exist.
+    ///
+    /// The planner fills a template and cannot know the template was right.
+    /// When it is wrong every entry answers 404 and the plan looks exactly
+    /// like a correct one.
+    #[arg(long, num_args = 0..=1, default_missing_value = "5")]
+    verify: Option<usize>,
 }
 
 #[tokio::main]
@@ -196,16 +205,19 @@ async fn main() -> Result<()> {
             coverage,
             half_life,
             ignore_deadline,
-        } => run_plan(
-            &inputs,
-            &out,
-            PlanOptions {
-                half_life_days: half_life,
-                budget_usd,
-                coverage,
-                honour_deadline: !ignore_deadline,
-            },
-        ),
+        } => {
+            run_plan(
+                &inputs,
+                &out,
+                PlanOptions {
+                    half_life_days: half_life,
+                    budget_usd,
+                    coverage,
+                    honour_deadline: !ignore_deadline,
+                },
+            )
+            .await
+        }
 
         Command::Warm {
             plan,
@@ -303,7 +315,7 @@ async fn run_digest(
     Ok(())
 }
 
-fn run_plan(args: &PlanArgs, out: &str, options: PlanOptions) -> Result<()> {
+async fn run_plan(args: &PlanArgs, out: &str, options: PlanOptions) -> Result<()> {
     let loaded = inputs::load(inputs::Paths {
         digests: &args.digests,
         invalidation: &args.invalidation,
@@ -333,6 +345,61 @@ fn run_plan(args: &PlanArgs, out: &str, options: PlanOptions) -> Result<()> {
         plan.estimate.warm.usd,
         duration(plan.estimate.warm.wall_clock_s),
     );
+    if plan.stats.unwarmable > 0 {
+        eprintln!(
+            "okibi: {} document(s) the manifest says warming cannot help, left out",
+            plan.stats.unwarmable
+        );
+    }
+
+    if let Some(size) = args.verify {
+        return report_verified(
+            verify::verify(&plan, size, warm::secret_from_env().as_deref()).await,
+        );
+    }
+    Ok(())
+}
+
+/// Say what the sample answered, and refuse a plan whose URLs are not URLs.
+///
+/// Written after the plan rather than instead of it: the plan is worth having
+/// even when it is wrong, because reading it is how the template gets fixed.
+fn report_verified(checked: Result<Vec<verify::Checked>>) -> Result<()> {
+    let checked = checked?;
+    if checked.is_empty() {
+        eprintln!("okibi: nothing to verify");
+        return Ok(());
+    }
+
+    for check in &checked {
+        let answer = match (check.status, &check.error) {
+            (Some(status), _) => status.to_string(),
+            (None, Some(error)) => error.clone(),
+            (None, None) => "no answer".to_string(),
+        };
+        let mark = if check.ok() { " " } else { "!" };
+        // The service is named because a plan can hold two of them and one
+        // template can be wrong on its own.
+        eprintln!(
+            "okibi: {mark} #{} {answer} {} {}",
+            check.rank, check.service, check.url
+        );
+    }
+
+    let wrong = checked.iter().filter(|check| check.is_wrong()).count();
+    let ok = checked.iter().filter(|check| check.ok()).count();
+    eprintln!("okibi: {ok} of {} sampled URLs answered", checked.len());
+
+    if wrong > 0 {
+        // Refused rather than reported, because a plan whose URLs do not exist
+        // costs a real request each and warms nothing, and the failure looks
+        // exactly like success from every other number in the plan.
+        anyhow::bail!(
+            "{wrong} of {} sampled URLs do not exist: the manifest's template, \
+             the digest's ids, or the epochs do not rebuild this service's URLs",
+            checked.len()
+        );
+    }
     Ok(())
 }
 

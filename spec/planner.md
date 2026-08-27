@@ -158,3 +158,25 @@ should_warm :: (digest_slice, tile_ref, epochs) -> { warm: bool, priority: f64 }
 The same derivation for one tile instead of a set, for a delivery path asking
 "is this worth revalidating" at request time. Reserved in the API, not
 implemented.
+
+## Verifying
+
+`plan` is a pure function and cannot tell whether the URLs it built exist. It
+fills a template from a manifest with ids from a digest, and if the template,
+the ids or the epochs do not agree with the service, every entry answers 404
+while the plan itself reads as correct — the entries are ordered, the coverage
+is a number, the cost is a number.
+
+`okibi plan --verify` asks the origin about a sample afterwards. It is outside
+the pure part on purpose: the planner still takes no network, and the answer
+is not an input to the plan.
+
+The sample is spread through the plan rather than taken from its head, because
+the head is the hottest cell and a template that happens to work there can be
+wrong further down. The first entry of every service is always included: that
+one comes from `meta_urls` rather than `url_template`, and is the one place a
+plan can be half right.
+
+A 4xx fails the command. A 5xx or a timeout does not — that is an origin
+having a bad minute, and an origin is allowed one without failing a pull
+request.
