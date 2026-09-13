@@ -71,7 +71,7 @@ jobs:
       # CLI is pinned to the version the lockfile resolved rather than to
       # whatever crates.io published this week.
       - name: Install wasm-pack
-        uses: taiki-e/install-action@7b8d4719ee4aaa279bdf55df38dacb9ebfe12a6c # v2
+        uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2
         with:
           tool: wasm-pack
 
