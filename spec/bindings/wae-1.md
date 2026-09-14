@@ -104,7 +104,8 @@ env.TILE_DEMAND.writeDataPoint({
   indexes: [ev.service],
   blobs: [ev.service, ev.tileset, ev.kind, ev.id, ev.qk, ev.qk8,
           ev.cacheStatus, ev.epochSource, ev.epochAlgo, ev.epochParam,
-          ev.fmt, ev.colo ?? "", ev.origin],
+          ev.fmt, ev.colo ?? "", ev.origin, ev.cacheLayer ?? "",
+          ev.site ?? ""],
   doubles: [1, ev.genMs, ev.genDepMs ?? 0, ev.bytes, ev.z ?? -1],
 });
 ```

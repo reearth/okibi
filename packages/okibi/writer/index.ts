@@ -21,5 +21,6 @@ export type {
 
 export { type EpochsFile, UnknownTileset, cacheKeyFor, epochFor } from "./epochs.js";
 export { type HasHeaders, WARM_HEADER, originOf, warmHeaders } from "./origin.js";
+export { siteOf } from "./site.js";
 export { type DataPoint, type Dataset, NotWritable, check, qk8, toDataPoint } from "./wae.js";
 export { type Writer, type WriterOptions, createWriter } from "./writer.js";

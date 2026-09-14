@@ -27,6 +27,7 @@ Examples: [`examples/`](examples/).
 | `tile.fmt` | string | ✔ | Delivered format: `qmesh`, `png`, `mvt`, `glb`, `json`, … |
 | `tile.colo` | string | — | Edge location code, e.g. `NRT`, where one is available |
 | `tile.origin` | string | ✔ | `organic` or `warm`. A request okibi itself made is `warm` |
+| `tile.site` | string | — | Which site asked, as a **bare origin** — `https://example.org`. Never a page URL. Empty where the client sent neither `Origin` nor `Referer` |
 | `tile.count` | number | ✔ | Always `1`. It exists so the reader can restore sampling weight |
 | `tile.gen_ms` | number | ✔ | Milliseconds spent generating, as far as the runtime can see. `0` on a hit |
 | `tile.gen_dep_ms` | number | — | The part of `gen_ms` spent calling another service, e.g. a building-mesh service asking a terrain service for ground height |
@@ -139,6 +140,23 @@ the other direction is a ledger anyone can edit.
 
 `gen_ms` is exempt: generation cost does not depend on who asked, so warm
 requests are perfectly good cost samples and estimates may use them.
+
+**Record an origin, never a referrer.** A tile service is a dependency of
+other people's maps, and `tile.site` is the only thing that says whose. What
+belongs in it is scheme and host. What does not is the rest of a `Referer`: a
+page URL carries paths, ids and query strings that belong to that site's
+users — a search term, a document id, a share token — and none of it answers
+the question the column exists for. Reduce it at the edge of the service,
+before it is written, so the full value never reaches a log at all.
+
+The cardinality argument agrees with the privacy one, which is usually a sign
+the line is in the right place: one row per site is a column a query can group
+by, and one row per page is a column nobody can read.
+
+Prefer the `Origin` header, which is already only an origin and which a tile
+fetch carries because a tile fetch is cross-origin. Fall back to the origin
+*of* `Referer`. Leave it empty otherwise: a native client, a script and a
+crawler send neither, and empty says "not a web page" rather than "unknown".
 
 ## Relationship to OpenTelemetry
 

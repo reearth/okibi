@@ -67,6 +67,15 @@ export interface TileDemandEvent {
   cacheLayer?: CacheLayer | undefined;
   epoch: Epoch;
   fmt: string;
+  /**
+   * Which site asked, as a bare origin — `https://example.org`, never a page
+   * URL. See `siteOf`, which is where the reduction happens and where the
+   * reason it must be a reduction is written down.
+   *
+   * Empty for a client that sends neither `Origin` nor `Referer`, which is
+   * most non-browser clients. Empty means "not a web page", not "unknown".
+   */
+  site?: string | undefined;
   colo?: string | undefined;
   origin: Origin;
   /** Milliseconds spent generating. Zero on a hit. */

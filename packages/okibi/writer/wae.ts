@@ -92,6 +92,11 @@ export function toDataPoint(event: TileDemandEvent): DataPoint {
       event.colo ?? "",
       event.origin,
       event.cacheLayer ?? "",
+      // Appended rather than slotted in beside `colo`, because the binding is
+      // positional: a column inserted in the middle moves every column after
+      // it, and every query and every digest already written would be reading
+      // the wrong one.
+      event.site ?? "",
     ],
     doubles: [
       1,

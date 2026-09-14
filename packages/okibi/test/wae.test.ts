@@ -31,9 +31,13 @@ describe("the wae-1 column order", () => {
       cacheStatus: "hit",
       genMs: 0,
       cacheLayer: "edge",
+      site: "https://maps.example.org",
     });
 
-    // blob1..blob14, in the order spec/bindings/wae-1.md gives them.
+    // blob1..blob15, in the order spec/bindings/wae-1.md gives them. A column
+    // added anywhere but the end moves every column after it, and every query
+    // and digest already written reads the wrong one — so this asserts the
+    // whole array rather than the fields it happens to care about.
     expect(point.blobs).toEqual([
       "papers",
       "style-aoi-04",
@@ -49,6 +53,7 @@ describe("the wae-1 column order", () => {
       "NRT",
       "organic",
       "edge",
+      "https://maps.example.org",
     ]);
 
     // double1..double5.

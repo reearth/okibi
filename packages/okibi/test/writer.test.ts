@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { UnknownTileset, cacheKeyFor, epochFor } from "../writer/epochs.js";
 import type { EpochsFile } from "../writer/epochs.js";
 import { WARM_HEADER, originOf, warmHeaders } from "../writer/origin.js";
+import { siteOf } from "../writer/site.js";
 import type { TileDemand } from "../writer/types.js";
 import type { DataPoint } from "../writer/wae.js";
 import { createWriter } from "../writer/writer.js";
@@ -182,5 +183,60 @@ describe("epochs a file cannot hold", () => {
 
     expect(onError).not.toHaveBeenCalled();
     expect(dataset.written[0]?.blobs[1]).toBe("style-aoi-99");
+  });
+});
+
+describe("which site asked", () => {
+  const request = (headers: Record<string, string>) => ({
+    headers: { get: (name: string) => headers[name] ?? null },
+  });
+
+  it("prefers Origin, which is already only an origin", () => {
+    expect(siteOf(request({ Origin: "https://maps.example.org" }))).toBe(
+      "https://maps.example.org",
+    );
+  });
+
+  /// The whole point of the column: a page URL carries paths, ids and query
+  /// strings belonging to that site's users, and none of them answer "who is
+  /// asking". Reduced before it is written, so the full value never lands.
+  it("keeps only the origin of a Referer", () => {
+    expect(
+      siteOf(request({ Referer: "https://atlas.example.org/map/a7f31?q=%E6%9D%B1%E4%BA%AC" })),
+    ).toBe("https://atlas.example.org");
+  });
+
+  it("takes Origin over Referer when both are sent", () => {
+    expect(
+      siteOf(request({ Origin: "https://a.example", Referer: "https://b.example/page" })),
+    ).toBe("https://a.example");
+  });
+
+  /// Empty is an answer — "not a web page" — and most non-browser clients
+  /// give it. A native app, a script and a crawler send neither header.
+  it("is empty when the client sent neither", () => {
+    expect(siteOf(request({}))).toBe("");
+    expect(siteOf(request({ "User-Agent": "curl/8.4" }))).toBe("");
+  });
+
+  /// A privacy-conscious browser sends this for a cross-origin request from
+  /// an opaque origin. It is not a site, and it must not become one.
+  it("treats a null origin as no site", () => {
+    expect(siteOf(request({ Origin: "null" }))).toBe("");
+  });
+
+  /// A header is something a client sends, which means it is something a
+  /// client can send anything in. Parsed rather than pattern-matched, so a
+  /// value this does not understand comes back empty rather than coming back
+  /// as whatever a regular expression happened to catch.
+  it("refuses what is not an http origin", () => {
+    expect(siteOf(request({ Origin: "not a url" }))).toBe("");
+    expect(siteOf(request({ Referer: "javascript:alert(1)" }))).toBe("");
+    expect(siteOf(request({ Referer: "file:///Users/someone/map.html" }))).toBe("");
+    expect(siteOf(request({ Origin: "  " }))).toBe("");
+  });
+
+  it("keeps a non-default port, which is part of the origin", () => {
+    expect(siteOf(request({ Origin: "http://localhost:5173" }))).toBe("http://localhost:5173");
   });
 });
