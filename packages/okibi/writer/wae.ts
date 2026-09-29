@@ -58,6 +58,19 @@ export function check(event: TileDemandEvent): void {
       `hit for ${event.id} claims ${event.genMs}ms of generation`,
     );
   }
+  const count = event.count ?? 1;
+  if (!Number.isInteger(count) || count < 1) {
+    throw new NotWritable(`${event.id} stands for ${count} requests`);
+  }
+  // A miss carries the generation time cost statistics are built from, and a
+  // warm event is how okibi's own traffic is told apart from demand. Neither
+  // survives being sampled, so only an organic hit may stand for more than
+  // itself — see spec/tile-demand.md.
+  if (count !== 1 && (event.cacheStatus !== "hit" || event.origin !== "organic")) {
+    throw new NotWritable(
+      `${event.id} is a ${event.origin} ${event.cacheStatus}, which is never sampled — got a count of ${count}`,
+    );
+  }
   // An event with no epoch at all can never be matched against an
   // invalidation, so it would aggregate into a cell no plan could ever act
   // on: written, counted, and unusable.
@@ -99,7 +112,7 @@ export function toDataPoint(event: TileDemandEvent): DataPoint {
       event.site ?? "",
     ],
     doubles: [
-      1,
+      event.count ?? 1,
       event.genMs,
       event.genDepMs ?? 0,
       event.bytes,
