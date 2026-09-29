@@ -17,6 +17,10 @@ const CASES: &[(&str, &str)] = &[
         "tile-demand-event.schema.json",
     ),
     (
+        "tile-demand-event.terrain-sampled.json",
+        "tile-demand-event.schema.json",
+    ),
+    (
         "tile-demand-event.buildings.json",
         "tile-demand-event.schema.json",
     ),
@@ -84,6 +88,41 @@ fn as_numbers(value: &serde_json::Value) -> serde_json::Value {
         ),
         other => other.clone(),
     }
+}
+
+/// Only an organic hit may stand for more than itself. The sampled example
+/// is valid; the same weight on a miss or on okibi's own traffic is not,
+/// because both are read for more than their count.
+#[test]
+fn only_an_organic_hit_carries_a_weight() {
+    let schema = read_json(
+        &spec_dir()
+            .join("schema")
+            .join("tile-demand-event.schema.json"),
+    );
+    let validator = jsonschema::validator_for(&schema).expect("schema");
+    let sampled = read_json(
+        &spec_dir()
+            .join("examples")
+            .join("tile-demand-event.terrain-sampled.json"),
+    );
+    assert!(validator.is_valid(&sampled));
+
+    let mut warm = sampled.clone();
+    warm["tile.origin"] = "warm".into();
+    assert!(!validator.is_valid(&warm), "a weighted warm hit");
+
+    let mut miss = sampled.clone();
+    miss["tile.cache.status"] = "miss".into();
+    miss.as_object_mut().unwrap().remove("tile.cache.layer");
+    miss["tile.gen_ms"] = 2380.into();
+    assert!(!validator.is_valid(&miss), "a weighted miss");
+    miss["tile.count"] = 1.into();
+    assert!(validator.is_valid(&miss), "the same miss, unweighted");
+
+    let mut fractional = sampled;
+    fractional["tile.count"] = 2.5.into();
+    assert!(!validator.is_valid(&fractional), "a fractional count");
 }
 
 /// Reads an example into `T`, writes it back, and insists on getting the same

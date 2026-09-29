@@ -69,7 +69,9 @@
       ]
     },
     "tile.count": {
-      "const": 1
+      "description": "How many requests this event stands for: 1, or the weight k when a writer kept this organic hit as one in k.",
+      "type": "integer",
+      "minimum": 1
     },
     "tile.gen_ms": {
       "type": "number",
@@ -201,6 +203,32 @@
           "required": [
             "tile.cache.layer"
           ]
+        }
+      }
+    },
+    {
+      "$comment": "Only an organic hit is ever sampled, so only an organic hit may stand for more than itself. A miss carries the generation time cost statistics need one for one, and a warm event is how okibi audits its own traffic.",
+      "if": {
+        "not": {
+          "properties": {
+            "tile.cache.status": {
+              "const": "hit"
+            },
+            "tile.origin": {
+              "const": "organic"
+            }
+          },
+          "required": [
+            "tile.cache.status",
+            "tile.origin"
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "tile.count": {
+            "const": 1
+          }
         }
       }
     }
