@@ -9,6 +9,13 @@
 //! counts organic requests only. A bare `count()` is not an approximation of
 //! the truth, it is an arbitrary number, and warm requests counted as demand
 //! are a feedback loop.
+//!
+//! A row stands for `double1 * _sample_interval` requests, not for
+//! `_sample_interval` of them: a writer that samples hits writes the weight it
+//! sampled at into `double1`. So anything summed per request — bytes as much
+//! as requests — carries both. Generation time does not need the first,
+//! because only hits are ever sampled and a hit generated nothing; the
+//! quantiles are taken over misses, which are always written one for one.
 
 use serde::{Deserialize, Serialize};
 
@@ -86,10 +93,10 @@ pub fn cells(config: &DigestQuery, window: &Window) -> String {
   quantileWeighted(0.5)(double2, IF(blob7 = 'miss', _sample_interval, 0)) AS p50_gen_ms,
   quantileWeighted(0.95)(double2, IF(blob7 = 'miss', _sample_interval, 0)) AS p95_gen_ms,
   SUM(double2 * _sample_interval) AS sum_gen_ms,
-  SUM(double4 * _sample_interval) AS bytes,
-  SUM(double4 * _sample_interval) / SUM(double1 * _sample_interval) AS avg_bytes,
+  SUM(double4 * double1 * _sample_interval) AS bytes,
+  SUM(double4 * double1 * _sample_interval) / SUM(double1 * _sample_interval) AS avg_bytes,
   COUNT(DISTINCT blob4) AS tiles_observed,
-  MAX(_sample_interval) AS sample_interval_max
+  MAX(double1 * _sample_interval) AS sample_interval_max
 FROM {dataset}
 WHERE timestamp >= toDateTime({from})
   AND timestamp < toDateTime({to}){services}
@@ -194,16 +201,33 @@ mod tests {
         }
     }
 
-    /// Not a frequency, so not weighted: this is the weight itself, and
-    /// multiplying it by anything would be asking how heavily the sampling
-    /// was sampled.
+    /// Not a frequency: this is the weight itself, how many requests one row
+    /// stood for. A writer that samples hits puts its share of that in
+    /// `double1`, so the weight is the product — the backend's interval alone
+    /// would say a cell was read one for one when every row in it was one hit
+    /// in ten.
     #[test]
     fn asks_how_hard_the_rows_were_sampled() {
         let sql = cells(&config(), &window());
         assert!(
-            sql.contains("MAX(_sample_interval) AS sample_interval_max"),
+            sql.contains("MAX(double1 * _sample_interval) AS sample_interval_max"),
             "{sql}"
         );
+    }
+
+    /// A row a writer sampled is one response standing for `double1` of
+    /// them, so its size counts that many times too. Weighted by the interval
+    /// alone, a service that samples hits would report a tenth of the bytes
+    /// it served for every hit it thinned.
+    #[test]
+    fn bytes_carry_the_writers_weight_as_well() {
+        let sql = cells(&config(), &window());
+        for line in sql.lines().filter(|line| line.contains("double4")) {
+            assert!(
+                line.contains("double4 * double1 * _sample_interval"),
+                "{line}"
+            );
+        }
     }
 
     #[test]

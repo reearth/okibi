@@ -159,7 +159,7 @@ describe("the digest, through the binding", () => {
 
   it("asks the backend for it", () => {
     expect(digestQueries(undefined, "2026-08-23").cells).toContain(
-      "MAX(_sample_interval) AS sample_interval_max",
+      "MAX(double1 * _sample_interval) AS sample_interval_max",
     );
   });
 });
