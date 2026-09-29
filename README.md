@@ -83,8 +83,14 @@ and keeps it in its own bucket; the executor is deployed and drains plans from
 a queue; and Buildings warms from its repository when an epoch moves, while
 Papers watches for the epochs that move without anyone pushing.
 
-What has not happened is a plan warmed against an invalidation nobody
-arranged. Every one so far has been written by hand to make something run.
+An invalidation nobody arranged has happened once, and nothing was warmed.
+On 2026-09-01 Papers' monthly mirror moved the source of all twelve of its
+tilesets. The watch noticed that night and every night after, but its
+hand-over called the executor by URL, which one Worker cannot do to another on
+the same account. The executor was never called. Every plan that has been
+warmed so far was written by hand to make something run. See
+[`workers/executor`](workers/executor/README.md#interface) for how a Worker
+calls it instead.
 
 ### What meeting real data cost
 

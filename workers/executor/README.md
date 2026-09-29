@@ -32,6 +32,35 @@ plan as the body. The entries go onto the queue and the response says how many:
 { "queued": 4210 }
 ```
 
+A CI job calls it by URL. A Worker on the same account cannot: Cloudflare
+lets one Worker `fetch` another only through a service binding (or the
+`global_fetch_strictly_public` compatibility flag), and a request to the
+executor's `workers.dev` name never arrives. Bind it instead, and call the
+binding with any hostname, since only the path is read:
+
+```toml
+[[services]]
+binding = "OKIBI_EXECUTOR"
+service = "okibi-executor"
+```
+
+```ts
+await env.OKIBI_EXECUTOR.fetch("https://okibi-executor/plans", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${env.OKIBI_EXECUTOR_TOKEN}` },
+  body: JSON.stringify(plan),
+});
+```
+
+The binding makes that service's deploy depend on this one: a deploy fails
+when the Worker it binds is not in the account. Deploy the executor first.
+
+Papers' watch called it by URL. From 2026-09-01, when a monthly mirror moved
+every one of its tilesets, the watch wrote a plan each night, the hand-over
+failed, the cron logged a warning and exited successfully, and nothing was
+warmed for four weeks. What showed it was this Worker's invocation count, which
+stayed at zero.
+
 A plan whose version this executor does not read is refused rather than
 interpreted. A plan whose fields had moved would be warmed wrong, and warming
 the wrong thing looks exactly like warming the right thing.
