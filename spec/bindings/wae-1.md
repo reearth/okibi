@@ -34,13 +34,14 @@ that cannot be rewritten.
 | `tile.colo` | `blob12`, empty string when absent |
 | `tile.origin` | `blob13` |
 | `tile.cache.layer` | `blob14`, empty string when absent |
+| `tile.site` | `blob15`, empty string when absent |
 | `tile.count` | `double1` |
 | `tile.gen_ms` | `double2` |
 | `tile.gen_dep_ms` | `double3`, `0` when absent |
 | `tile.bytes` | `double4` |
 | `tile.z` | `double5` |
 
-Six blobs and fifteen doubles are left over.
+Five blobs and fifteen doubles are left over.
 
 ### Why the index is `service` alone
 

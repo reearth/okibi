@@ -62,6 +62,10 @@
     "tile.colo": {
       "type": "string"
     },
+    "tile.site": {
+      "description": "Which site asked, as a bare origin such as https://example.org. Empty where the client sent neither Origin nor Referer.",
+      "type": "string"
+    },
     "tile.origin": {
       "enum": [
         "organic",

@@ -12,6 +12,7 @@
   "tile.epoch.param": "me1.0-wm",
   "tile.fmt": "qmesh",
   "tile.colo": "NRT",
+  "tile.site": "https://example.org",
   "tile.origin": "organic",
   "tile.count": 10,
   "tile.gen_ms": 0,
