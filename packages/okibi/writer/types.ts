@@ -78,6 +78,15 @@ export interface TileDemandEvent {
   site?: string | undefined;
   colo?: string | undefined;
   origin: Origin;
+  /**
+   * How many requests this event stands for. `1` when absent.
+   *
+   * More than one only for an organic hit that a writer kept while sampling,
+   * where it is the `k` in "one in `k`": this event is written in place of
+   * `k - 1` that were not. The writer sets it; a service describing the
+   * request it served has no reason to.
+   */
+  count?: number | undefined;
   /** Milliseconds spent generating. Zero on a hit. */
   genMs: number;
   /** The part of `genMs` that was spent calling another service. */
@@ -88,7 +97,7 @@ export interface TileDemandEvent {
 }
 
 /** What a service passes in: everything the writer cannot know for it. */
-export type TileDemand = Omit<TileDemandEvent, "service" | "epoch"> & {
+export type TileDemand = Omit<TileDemandEvent, "service" | "epoch" | "count"> & {
   /**
    * The epochs this tile was cached under, where they are not the ones in
    * `okibi.epochs.json`.

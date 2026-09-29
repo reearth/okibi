@@ -71,6 +71,11 @@ describe("the wae-1 column order", () => {
     ).toBe(1);
   });
 
+  it("carries the weight of a sampled hit in the count", () => {
+    const hit = { ...papers, cacheStatus: "hit" as const, genMs: 0 };
+    expect(toDataPoint({ ...hit, count: 10 }).doubles[0]).toBe(10);
+  });
+
   it("fills the optional columns rather than leaving holes", () => {
     const point = toDataPoint(papers);
     expect(point.blobs[11]).toBe(""); // colo
@@ -102,6 +107,28 @@ describe("qk8", () => {
 
   it("is the whole thing when there is less than that", () => {
     expect(qk8("1330")).toBe("1330");
+  });
+});
+
+/// Only an organic hit is ever sampled, so only an organic hit may stand for
+/// more than itself. A weighted miss would put one generation time into the
+/// ledger k times; a weighted warm event would mean okibi's own traffic was
+/// thinned before anyone could check it.
+describe("what a count may be", () => {
+  const hit = { ...papers, cacheStatus: "hit" as const, genMs: 0 };
+
+  it("is more than one only for an organic hit", () => {
+    expect(() => check({ ...hit, count: 10 })).not.toThrow();
+    expect(() => check({ ...papers, count: 10 })).toThrow(NotWritable);
+    expect(() => check({ ...hit, origin: "warm", count: 10 })).toThrow(NotWritable);
+    expect(() => check({ ...papers, cacheStatus: "swr", count: 10 })).toThrow(NotWritable);
+    expect(() => check({ ...hit, cacheStatus: "error", count: 10 })).toThrow(NotWritable);
+  });
+
+  it("is a whole number of requests", () => {
+    for (const count of [0, -1, 2.5, Number.NaN]) {
+      expect(() => check({ ...hit, count })).toThrow(NotWritable);
+    }
   });
 });
 

@@ -99,6 +99,129 @@ describe("the writer", () => {
   });
 });
 
+/// Most of a busy service's ledger is hits, and a hit is only ever counted.
+/// Writing one in k with a weight of k keeps the count and pays for a tenth
+/// of the rows; what cannot be thinned is everything read for more than its
+/// count — see spec/tile-demand.md.
+describe("sampling hits", () => {
+  const hit: TileDemand = { ...demand, cacheStatus: "hit", cacheLayer: "edge", genMs: 0 };
+
+  /// A random source that answers from a list, so a test says which hits are
+  /// kept rather than hoping.
+  const draws = (...values: number[]) => {
+    let i = 0;
+    return () => values[i++ % values.length] ?? 0;
+  };
+
+  it("writes every hit when it is not asked to", () => {
+    const dataset = sink();
+    const random = vi.fn(() => 0.99);
+    const writer = createWriter({ dataset, epochs, random });
+
+    writer.write(hit);
+    writer.write(hit);
+
+    expect(dataset.written.map((p) => p.doubles[0])).toEqual([1, 1]);
+    expect(random).not.toHaveBeenCalled();
+  });
+
+  it("writes the hits it keeps with the weight of the ones it does not", () => {
+    const dataset = sink();
+    // One in ten is kept when the draw is under a tenth.
+    const writer = createWriter({
+      dataset,
+      epochs,
+      sampleHits: 10,
+      random: draws(0.05, 0.5, 0.99, 0.0999, 0.1),
+    });
+
+    for (let i = 0; i < 5; i++) writer.write(hit);
+
+    expect(dataset.written.map((p) => p.doubles[0])).toEqual([10, 10]);
+  });
+
+  /// Over many requests the weighted rows add back up to the requests. This
+  /// is the property the sampling is allowed to exist for.
+  it("keeps the total", () => {
+    const dataset = sink();
+    let seed = 1;
+    // A small deterministic generator, so the test is the same every run.
+    const random = () => {
+      seed = (seed * 16807) % 2147483647;
+      return (seed - 1) / 2147483646;
+    };
+    const writer = createWriter({ dataset, epochs, sampleHits: 10, random });
+
+    const requests = 100_000;
+    for (let i = 0; i < requests; i++) writer.write(hit);
+
+    const total = dataset.written.reduce((sum, p) => sum + (p.doubles[0] ?? 0), 0);
+    // Relative error is about sqrt((k - 1) / n) = 0.95%; this allows four
+    // times that.
+    expect(Math.abs(total - requests) / requests).toBeLessThan(0.04);
+    expect(dataset.written.length).toBeLessThan(requests / 5);
+  });
+
+  /// A miss carries the generation time every cost estimate is built from,
+  /// and a stale answer or an error is rare enough that thinning it saves
+  /// nothing and loses the only record of it.
+  it("never samples anything but a hit", () => {
+    const dataset = sink();
+    const writer = createWriter({ dataset, epochs, sampleHits: 10, random: () => 0.99 });
+
+    writer.write(demand);
+    writer.write({ ...demand, cacheStatus: "swr" });
+    writer.write({ ...demand, cacheStatus: "error", genMs: 0 });
+
+    expect(dataset.written.map((p) => [p.blobs[6], p.doubles[0]])).toEqual([
+      ["miss", 1],
+      ["swr", 1],
+      ["error", 1],
+    ]);
+  });
+
+  /// A warm event is okibi's record of what it did itself. Sampled, the
+  /// executor's own traffic could no longer be checked against its plan.
+  it("never samples a warm hit", () => {
+    const dataset = sink();
+    const writer = createWriter({ dataset, epochs, sampleHits: 10, random: () => 0.99 });
+
+    writer.write({ ...hit, origin: "warm" });
+
+    expect(dataset.written).toHaveLength(1);
+    expect(dataset.written[0]?.doubles[0]).toBe(1);
+  });
+
+  it("still reports a malformed hit it would not have kept", () => {
+    const dataset = sink();
+    const onError = vi.fn();
+    const writer = createWriter({
+      dataset,
+      epochs,
+      onError,
+      sampleHits: 10,
+      random: () => 0.99,
+    });
+
+    writer.write({ ...hit, qk: undefined });
+
+    expect(dataset.written).toHaveLength(0);
+    expect(onError).toHaveBeenCalledOnce();
+  });
+
+  it("refuses a rate that is not one in a whole number", () => {
+    for (const sampleHits of [0, -1, 0.5, 2.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => createWriter({ dataset: sink(), epochs, sampleHits })).toThrow(RangeError);
+    }
+    expect(() => createWriter({ dataset: sink(), epochs, sampleHits: 1 })).not.toThrow();
+  });
+
+  it("hands back the event unweighted", () => {
+    const writer = createWriter({ dataset: sink(), epochs, sampleHits: 10 });
+    expect(writer.eventFor(hit).count).toBeUndefined();
+  });
+});
+
 describe("where a request came from", () => {
   const SECRET = "a-shared-secret";
   const request = (headers: Record<string, string>) => ({

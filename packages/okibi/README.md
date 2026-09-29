@@ -50,6 +50,31 @@ looks fine and means something different.
 response is worth losing over bookkeeping; a refused event goes to `onError`.
 The pure `toDataPoint` does throw, which is what tests hold.
 
+### Sampling hits
+
+```ts
+const writer = createWriter({ dataset: env.TILE_DEMAND, epochs, sampleHits: 10 });
+```
+
+writes one organic hit in ten, with `tile.count` set to `10` so that it
+stands for the nine that were not written. Misses, stale answers, errors and
+anything warm are written every time: misses carry the generation time cost
+estimates are built from, and warm events are how okibi checks what it did
+itself. Nothing on the reading side changes, because the weight is in the row.
+Off by default.
+
+It is for a service whose ledger is mostly hits and large enough that paying
+for every row is a decision — Terrain's is about 95% hits and 99% of the
+dataset. What it costs is the tail. Totals stay right, but a tile with `n`
+hits is counted to within about `sqrt((k - 1) / n)`: at one in ten, 3% for a
+tile hit ten thousand times, 30% for one hit a hundred times, and a tile hit
+only a handful of times may not appear at all. The head, which is what a plan
+warms first, barely moves. [The vocabulary](../../spec/tile-demand.md#sampling-hits)
+has the rules and the reasoning.
+
+`random` is there for tests: pass a function returning numbers in `[0, 1)` to
+decide which hits are kept.
+
 ## Projection
 
 ```ts
