@@ -58,7 +58,8 @@ pub struct DigestRecord {
     /// Distinct tiles seen in this cell: the denominator estimates rest on.
     pub tiles_observed: u64,
 
-    /// How many events one row stood for, at worst.
+    /// How many events one row stood for, at worst: the backend's sampling
+    /// and a writer's `tile.count` together.
     ///
     /// Recorded and not acted on. A backend that samples keeps the totals
     /// right — the weight is restored when they are summed — but it cannot
