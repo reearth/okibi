@@ -38,7 +38,7 @@ JSONL or Parquet. One record per `(service, tileset, kind, qk8, window)`.
 | `sum_gen_ms` | Total generation time, over every request |
 | `avg_bytes`, `bytes` | Response sizes |
 | `tiles_observed` | Distinct tiles actually seen in this cell. The denominator every estimate is built on |
-| `sample_interval_max` | How many events one row stood for, at worst. `1` means nothing here was sampled |
+| `sample_interval_max` | How many events one row stood for, at worst — the backend's sampling and the writer's [`tile.count`](tile-demand.md#sampling-hits) together. `1` means nothing here was sampled |
 | `top_qk` | Optional. The cell's top tiles, `[qk, id, req]`, default top 20 |
 
 `sample_interval_max` is recorded and not acted on. A backend that samples

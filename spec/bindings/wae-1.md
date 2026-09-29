@@ -59,6 +59,20 @@ bare `count()` is not a smaller number than the truth; it is an arbitrary one,
 because the interval varies with volume. Any frequency read that skips this is
 invalid as a ledger and should not be treated as approximate.
 
+There are two samplings and a row carries both: Analytics Engine's, in
+`_sample_interval`, and the writer's, in `double1` when it
+[samples hits](../tile-demand.md#sampling-hits). A row stands for
+`double1 * _sample_interval` requests, so anything summed per request carries
+both factors — `SUM(double4 * double1 * _sample_interval)` for bytes, not
+`SUM(double4 * _sample_interval)`, which would count a kept hit's response once
+for the ten it stood for. How coarsely a cell was read is likewise
+`MAX(double1 * _sample_interval)`.
+
+Generation time needs only the interval. Only hits are sampled, a hit
+generated nothing, and misses are written one for one — so a quantile over
+misses weighted by `_sample_interval` is already right, and stays right only
+for as long as that rule holds.
+
 **Aggregate space by `blob6`**, or by `blob5 LIKE '<prefix>%'` for a prefix
 roll-up.
 
@@ -106,9 +120,22 @@ env.TILE_DEMAND.writeDataPoint({
           ev.cacheStatus, ev.epochSource, ev.epochAlgo, ev.epochParam,
           ev.fmt, ev.colo ?? "", ev.origin, ev.cacheLayer ?? "",
           ev.site ?? ""],
-  doubles: [1, ev.genMs, ev.genDepMs ?? 0, ev.bytes, ev.z ?? -1],
+  doubles: [ev.count ?? 1, ev.genMs, ev.genDepMs ?? 0, ev.bytes, ev.z ?? -1],
 });
 ```
+
+`double1` is `1` for every event unless the writer samples hits, in which case
+a kept organic hit carries `k` and the others it stands for are not written at
+all. Nothing else about the point changes.
+
+Analytics Engine is what makes sampling worth having here. The dataset took
+about 397 million data points in the month to 2026-09-29, about 99% of them
+Terrain's. It is not billed yet; at the published $0.25 per million beyond ten
+million, that is about $97 a month, and one hit in ten would take off about
+86% of it. The precision it costs is in
+[the vocabulary](../tile-demand.md#sampling-hits), and it is small beside
+Analytics Engine's own: Terrain's edge hits were already being read at a
+`_sample_interval` of up to 500.
 
 Services should not write this themselves.
 [`@reearth/okibi/writer`](../../packages/okibi) packs the columns, so

@@ -68,7 +68,7 @@
       "minimum": 0
     },
     "sample_interval_max": {
-      "description": "The largest _sample_interval among the rows this cell was built from: how many events one row stood for, at worst. 1 means nothing here was sampled. Absent means the generator did not record it.",
+      "description": "How many events one row this cell was built from stood for, at worst: the backend's sampling interval times the writer's tile.count. 1 means nothing here was sampled. Absent means the generator did not record it.",
       "type": "number",
       "minimum": 1
     },

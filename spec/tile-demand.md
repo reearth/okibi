@@ -28,7 +28,7 @@ Examples: [`examples/`](examples/).
 | `tile.colo` | string | — | Edge location code, e.g. `NRT`, where one is available |
 | `tile.origin` | string | ✔ | `organic` or `warm`. A request okibi itself made is `warm` |
 | `tile.site` | string | — | Which site asked, as a **bare origin** — `https://example.org`. Never a page URL. Empty where the client sent neither `Origin` nor `Referer` |
-| `tile.count` | number | ✔ | Always `1`. It exists so the reader can restore sampling weight |
+| `tile.count` | number | ✔ | How many requests this event stands for. `1`, unless the writer [sampled hits](#sampling-hits), in which case it is the weight the sample was taken at. A reader multiplies by it, always |
 | `tile.gen_ms` | number | ✔ | Milliseconds spent generating, as far as the runtime can see. `0` on a hit |
 | `tile.gen_dep_ms` | number | — | The part of `gen_ms` spent calling another service, e.g. a building-mesh service asking a terrain service for ground height |
 | `tile.bytes` | number | ✔ | Response body size in bytes |
@@ -81,7 +81,11 @@ per service rather than universal — see [the planner](planner.md).
 
 **Write unconditionally.** Every tile request gets an event, hits included. A
 ledger of misses would record where the cache failed; what okibi needs is
-where the demand is, and demand is mostly hits.
+where the demand is, and demand is mostly hits. A writer may
+[sample hits](#sampling-hits), which is the one exception, and it is an
+exception to how many rows are written rather than to what is counted: a
+sampled hit is still in the ledger, as part of the weight of one that was
+kept.
 
 **Write on the hot path.** Emit as the response goes out. Where the backend
 offers a non-blocking write, do not wait for it.
@@ -158,6 +162,62 @@ fetch carries because a tile fetch is cross-origin. Fall back to the origin
 *of* `Referer`. Leave it empty otherwise: a native client, a script and a
 crawler send neither, and empty says "not a web page" rather than "unknown".
 
+## Sampling hits
+
+A writer **may** write one organic hit in `k` and drop the rest. When it does,
+it **must** write the one it keeps with `tile.count: k`. A kept hit with a
+count of `1` is not a sample; it is a tile that looks a tenth as popular as it
+was.
+
+The weight travels with the row, so a reader needs to know nothing about how a
+writer was configured: it multiplies by `tile.count`, as it always has. `k`
+can differ between services, or change on a deploy, and no query changes with
+it.
+
+**Only hits.** Everything else is written every time, with a count of `1`:
+
+- A `miss`, because it carries `tile.gen_ms`, and generation cost is read as a
+  distribution — a median, a 95th percentile — over rows that each measured
+  one generation. Misses are also the few: 4.4% of Terrain's events on
+  2026-09-28. Thinning them would save almost nothing and cost exactly the
+  number an estimate is most sensitive to. Written one for one, they also mean
+  every tile that was generated is in the ledger at least once.
+- A `swr` or an `error`, which are rarer still, and each of which is the only
+  record that a request went differently from usual.
+- Anything with `origin: "warm"`, hit or not. Warm events are not demand; they
+  are how okibi checks itself — what the executor asked for against what a
+  plan said to. A thinned record of okibi's own traffic is an audit with most
+  of its pages missing.
+
+**Sample uniformly.** Every organic hit is kept with the same probability,
+`1/k`, decided independently of which tile it was. Keeping the first hit on
+each tile, or sampling busy tiles harder, would make the weight right on
+average and wrong for exactly the tiles it was changed for — and the ledger
+would still look like demand.
+
+**What it costs is the tail.** A tile with `n` hits is counted to within a
+relative error of about `sqrt((k - 1) / n)`. At `k = 10`, a tile hit ten
+thousand times a day is counted to about 3%; one hit a hundred times, to about
+30%; and one hit fewer than `k` times is about as likely to be absent as
+present — nine hits leave it out altogether with probability `0.9⁹ ≈ 39%`.
+The head, which is what a plan warms first, is barely moved. The tail's
+counts become coarse, and `tiles_observed` in a digest reads low by the tiles
+that were only ever hit and never kept.
+
+That is the same kind of error a sampling backend already makes, and usually a
+smaller one. Analytics Engine read Terrain's edge hits on 2026-09-28 at a
+`_sample_interval` of up to 500 — a tile's count was already that coarse, and
+the digest already records how coarse in `sample_interval_max`. Where a
+backend samples by volume, a ledger written more thinly should be read at a
+finer interval, so the two are expected to cost nearer the larger of them than
+their product. That is an expectation rather than a measurement, and
+`sample_interval_max` — which counts both — is where to check it.
+
+What it buys is set by how much of a ledger is hits. For Terrain on
+2026-09-28, 95.3% of events were hits at the edge or the store; keeping one in
+ten of those is 86% fewer rows.
+A service that is mostly misses has nothing here worth taking.
+
 ## Relationship to OpenTelemetry
 
 A tile-demand event is an event — a structured log record — and not a trace or
@@ -193,4 +253,6 @@ A Terrain miss, quantized mesh, TMS-Geographic at z14
 
 The other examples are a Buildings tile with its dependent-call time broken
 out, a Buildings `tileset.json` request that carries no coordinates at all and
-was answered by an edge cache, and a Papers tile that okibi warmed itself.
+was answered by an edge cache, a Papers tile that okibi warmed itself, and
+the Terrain tile above answered from the edge by a writer keeping one hit in
+ten.
